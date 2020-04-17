@@ -70,11 +70,7 @@ var NicoLiveHelper = {
      * @returns {boolean}
      */
     hasBSP: function(){
-        try{
-            return this.liveProp.user.permissions.indexOf( 'POST_BSP_COMMENT' ) !== -1;
-        }catch( e ){
-            return false;
-        }
+        return false;
     },
 
     /**

@@ -28,28 +28,25 @@ var ContinuousComment = {
         if( str.length ){
             let cmd = document.getElementById( 'multiline-command' ).value;
             let comment = str[0];
-            if( !document.getElementById( 'use-bsp' ).checked ){
-                comment = comment.replace( /\\([\\n])/g, function( s, p ){
-                    switch( p ){
-                    case "n":
-                        return "\n";
-                    case "\\":
-                        return "\\";
-                    default:
-                        return s;
-                    }
-                } );
-                if( comment.indexOf( "/" ) == 0 ){
-                    let tmp = comment.split( "/" );
-                    cmd += " " + tmp[1];
-                    tmp.splice( 0, 2 );
-                    comment = tmp.join( "/" );
+
+            comment = comment.replace( /\\([\\n])/g, function( s, p ){
+                switch( p ){
+                case "n":
+                    return "\n";
+                case "\\":
+                    return "\\";
+                default:
+                    return s;
                 }
-                opener.NicoLiveComment.sendCommentCore( comment, cmd );
-            }else{
-                let color = $( '#bsp-name-color' ).val();
-                opener.NicoLiveHelper.postBSPComment( color, comment, cmd );
+            } );
+            if( comment.indexOf( "/" ) == 0 ){
+                let tmp = comment.split( "/" );
+                cmd += " " + tmp[1];
+                tmp.splice( 0, 2 );
+                comment = tmp.join( "/" );
             }
+            opener.NicoLiveComment.sendCommentCore( comment, cmd );
+
             str.splice( 0, 1 );
             document.getElementById( 'multiline-comment' ).value = str.join( '\r\n' );
         }else{
