@@ -972,11 +972,7 @@ var NicoLiveHelper = {
      * @private
      */
     getpostkey: function( threadId ){
-        let getpostkey = {
-            "type": "watch",
-            "body": {"params": [threadId], "command": "getpostkey"}
-        };
-        this._comm.send( JSON.stringify( getpostkey ) );
+        this._comm.send( '{"type":"getPostkey"}' );
     },
 
     /**
@@ -1001,7 +997,20 @@ var NicoLiveHelper = {
         let t = Math.min( this.live_begintime, this.liveProp.program.openTime );
         let vpos = Math.floor( (GetCurrentTime() - t) * 100 );
         // console.log( vpos );
-        let chat = {
+        // let chat = [{
+        //     "chat": {
+        //         "thread": this.threadId,
+        //         "vpos": vpos,
+        //         "mail": mail,
+        //         "ticket": this.ticket,
+        //         "user_id": this.nico_user_id,
+        //         "premium": this.is_premium,
+        //         "postkey": this.postkey,
+        //         "content": text
+        //     }
+        // }];
+
+        let chat = [{"ping": {"content": "rs:1"}}, {"ping": {"content": "ps:5"}}, {
             "chat": {
                 "thread": this.threadId,
                 "vpos": vpos,
@@ -1009,10 +1018,11 @@ var NicoLiveHelper = {
                 "ticket": this.ticket,
                 "user_id": this.nico_user_id,
                 "premium": this.is_premium,
-                "postkey": this.postkey,
-                "content": text
+                "content": text,
+                "postkey": this.postkey
             }
-        };
+        }, {"ping": {"content": "pf:5"}}, {"ping": {"content": "rf:1"}}]
+        // console.log( chat );
         this._comment_svr.send( JSON.stringify( chat ) );
         // console.log( chat );
     },
@@ -1188,7 +1198,7 @@ var NicoLiveHelper = {
             switch( result.status ){
             case 4:
                 // コメントするには postkey の再取得が必要
-                this.getpostkey( this.threadId );
+                this.getpostkey();
                 break;
 
             case 1:
@@ -1261,7 +1271,7 @@ var NicoLiveHelper = {
         console.log( 'connect comment server(websocket)...' );
         console.log( `websocket uri: ${room.messageServer.uri}` );
         console.log( `thread id: ${room.threadId}` );
-        console.log( `room name: ${room.roomName}` );
+        console.log( `room name: ${room.name}` );
         console.log( `server type: ${room.messageServer.type}` );
 
         this.threadId = room.threadId;
@@ -1319,16 +1329,30 @@ var NicoLiveHelper = {
 
     onWatchCommandReceived: function( data ){
         console.log( data ); // TODO 受信時のログ表示
-        let body = data.body;
+        let body = data.data;
         switch( data.type ){
         case 'room':
             // data.data.messageServer.uri;
             // data.data.messageServer.type;
             // data.data.threadId;
-            this.connectCommentServer( data.data );
+            this.connectCommentServer( body );
+            this.getpostkey();
+            break;
+        case 'postkey':
+            this.postkey = body.value;
+            console.log( `postkey:${this.postkey}` );
+            if( "function" === typeof this._getpostkeyfunc ){
+                this._getpostkeyfunc();
+                this._getpostkeyfunc = null;
+            }
             break;
 
-            // 以下はobsolete?
+        case 'statistics':
+            $( '#number-of-listeners' ).text( FormatCommas( body.viewers ) );
+            console.log( `Now ${body.viewers} listener(s).` );
+            break;
+
+            // TODO 以下はobsolete?
         case 'watch':
             switch( body.command ){
             case 'userstatus':
@@ -1371,7 +1395,7 @@ var NicoLiveHelper = {
             case 'currentroom':
                 // コメントサーバー
                 this.connectCommentServer( body.room );
-                this.getpostkey( body.room.threadId );
+                this.getpostkey();
                 break;
             case 'statistics':
                 // body.params[0]; // 来場者数
@@ -2168,6 +2192,8 @@ var NicoLiveHelper = {
             console.log( this.liveProp );
             this.live_begintime = this.liveProp.program.beginTime;
             this.live_endtime = this.liveProp.program.endTime;
+            this.nico_user_id = this.liveProp.user.id;
+            this.is_premium = this.liveProp.user.accountType == "premium" ? 1 : 0;
         }
 
         this.initUI();
