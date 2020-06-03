@@ -1259,15 +1259,15 @@ var NicoLiveHelper = {
      */
     connectCommentServer: function( room ){
         console.log( 'connect comment server(websocket)...' );
-        console.log( `websocket uri: ${room.messageServerUri}` );
+        console.log( `websocket uri: ${room.messageServer.uri}` );
         console.log( `thread id: ${room.threadId}` );
         console.log( `room name: ${room.roomName}` );
-        console.log( `server type: ${room.messageServerType}` );
+        console.log( `server type: ${room.messageServer.type}` );
 
         this.threadId = room.threadId;
 
         // sub-protocol "msg.nicovideo.jp#json"
-        this._comment_svr = new Comm( room.messageServerUri, "msg.nicovideo.jp#json" );
+        this._comment_svr = new Comm( room.messageServer.uri, "msg.nicovideo.jp#json" );
         this._comment_svr.connect();
         this._comment_svr.onConnect( ( ev ) => {
             console.log( 'comment server connected.' );
@@ -1318,9 +1318,17 @@ var NicoLiveHelper = {
     },
 
     onWatchCommandReceived: function( data ){
-        // console.log( data ); // TODO 受信時のログ表示
+        console.log( data ); // TODO 受信時のログ表示
         let body = data.body;
         switch( data.type ){
+        case 'room':
+            // data.data.messageServer.uri;
+            // data.data.messageServer.type;
+            // data.data.threadId;
+            this.connectCommentServer( data.data );
+            break;
+
+            // 以下はobsolete?
         case 'watch':
             switch( body.command ){
             case 'userstatus':
@@ -1419,8 +1427,19 @@ var NicoLiveHelper = {
         this._comm.onConnect( ( ev ) => {
             console.log( `websocket connected. ${this.liveProp.program.nicoliveProgramId}` );
             setTimeout( () => {
-                let getuserstatus = {"type": "watch", "body": {"params": [], "command": "getuserstatus"}};
-                this._comm.send( JSON.stringify( getuserstatus ) );
+
+                let initmsg = {
+                    "type": "startWatching",
+                    "data": {
+                        "stream": {
+                            "quality": "super_low",
+                            "protocol": "hls",
+                            "latency": "high",
+                            "chasePlay": false
+                        }, "room": {"protocol": "webSocket", "commentable": true}, "reconnect": false
+                    }
+                }
+                this._comm.send( JSON.stringify( initmsg ) );
             }, 100 );
         } );
         this._comm.onReceive( ( ev ) => {
