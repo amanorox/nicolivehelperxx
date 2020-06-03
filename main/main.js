@@ -1184,7 +1184,7 @@ var NicoLiveHelper = {
      * @param data
      */
     onCommentReceived: function( data ){
-        console.log( data );    // TODO コメント受信したときのログ表示
+        // console.log( data );    // TODO コメント受信したときのログ表示
         if( data.thread ){
             // data.thread.ticket;
             // data.thread.last_res;
@@ -1328,7 +1328,7 @@ var NicoLiveHelper = {
     },
 
     onWatchCommandReceived: function( data ){
-        console.log( data ); // TODO 受信時のログ表示
+        // console.log( data ); // TODO 受信時のログ表示
         let body = data.data;
         switch( data.type ){
         case 'room':
@@ -1350,6 +1350,10 @@ var NicoLiveHelper = {
         case 'statistics':
             $( '#number-of-listeners' ).text( FormatCommas( body.viewers ) );
             console.log( `Now ${body.viewers} listener(s).` );
+            break;
+        case 'schedule':
+            console.log( body.begin );
+            this.live_begintime = parseInt( (new Date( body.begin )).getTime() / 1000 );
             break;
 
             // TODO 以下はobsolete?
