@@ -30,15 +30,46 @@ data._type = 'html5';
 console.log( `html5 nicolive player detected.` );
 
 // アドオンをリロードしたときにbackground-scriptのロードより先に来てしまうので適当に待つ
-setTimeout( () =>{
+setTimeout( () => {
     let sending = browser.runtime.sendMessage( {
         cmd: 'put-liveinfo',
         liveinfo: data
     } );
 
-    sending.then( ( success ) =>{
-    }, ( failed ) =>{
+    sending.then( ( success ) => {
+    }, ( failed ) => {
         console.log( failed );
     } );
 }, 100 );
 
+
+const callback = function( mutationsList, observer ){
+    // Use traditional 'for loops' for IE 11
+    for( let mutation of mutationsList ){
+        if( mutation.type === 'childList' ){
+            for( let node of mutation.addedNodes ){
+                let img = node.querySelector( 'img' );
+                if( img.src.match( /nicovideo.cdn.nimg.jp\/thumbnails\/\d+\/(\d+)/ ) ){
+                    let vid = RegExp.$1;
+                    console.log( `sm${vid}` );
+                    let sending = browser.runtime.sendMessage( {
+                        cmd: 'playvideo',
+                        video_id: vid,
+                        lvid: data.program.nicoliveProgramId
+                    } );
+                    sending.then( ( success ) => {
+                    }, ( failed ) => {
+                        console.log( failed );
+                    } );
+                }
+            }
+        }
+    }
+};
+const observer = new MutationObserver( callback );
+
+// div.class = ___lock-item-area___2VlUz
+
+const config = {attributes: false, childList: true, subtree: true};
+let elem = document.querySelector( 'div[class*="___lock-item-area"]' )
+observer.observe( elem, config );

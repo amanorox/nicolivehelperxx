@@ -289,11 +289,19 @@ var NicoLiveHelper = {
                 return;
             }
 
-            let url = `http://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/broadcast/mixing`;
-            let xhr = CreateXHR( 'PUT', url );
+            // POST https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv326310403/bots/current/events/stop
+            // Referer: https://launch.spi.nicovideo.jp/quotation/?content_id=lv326310403&content_type=live&frontend_id=12&frontend_version=172.0.0&id=sm24329938
+            // Body {}
+
+            let url = `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current/events/stop`;
+            let xhr = CreateXHR( 'POST', url );
+            let video_id = this.currentVideo.video_id;
+            // Referer付かないけど大丈夫みたい
+            xhr.setRequestHeader( 'Referer', `https://launch.spi.nicovideo.jp/quotation/?content_id=${this.getLiveId()}&content_type=live&frontend_id=${this.liveProp.site.frontendId}&frontend_version=172.0.0&id=${video_id}` );
             xhr.onreadystatechange = () => {
                 if( xhr.readyState != 4 ) return;
                 if( xhr.status != 200 ){
+                    // TODO エラー処理を更新する
                     console.log( `${xhr.status} ${xhr.responseText}` );
 
                     // 400 {"meta":{"status":400,"errorCode":"BAD_REQUEST","errorMessage":"引用再生できない動画です"}}
@@ -310,21 +318,7 @@ var NicoLiveHelper = {
                 this._autoplay_timer = null;
                 resolve( true );
             };
-
-            xhr.setRequestHeader( 'Content-type', 'application/json;charset=utf-8' );
-            xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-
-            let volume = this.getVolume();
-            let data = {
-                'mixing': [
-                    {
-                        'audio': 0,
-                        'content': this.liveProp.program.nicoliveProgramId,
-                        'display': 'main'
-                    }
-                ]
-            };
-            xhr.send( JSON.stringify( data ) );
+            xhr.send( '{}' );
         } );
         return p;
     },
@@ -2231,6 +2225,19 @@ var NicoLiveHelper = {
                 $( '#type-of-comment' ).val( 1 );
             }
         }
+
+        let handleMessage = function( request, sender, sendResponse ){
+            switch( request.cmd ){
+            case '':
+                break;
+
+            default:
+                console.log( request );
+                console.log( sender );
+                break;
+            }
+        }
+        browser.runtime.onMessage.addListener( handleMessage );
 
         setInterval( ( ev ) => {
             try{
