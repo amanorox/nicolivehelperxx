@@ -374,6 +374,7 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     playVideo: async function( vinfo, is_change_volume ){
+        // TODO: 現状ママで動作するが一部のAPIがなくなっているので要修正
         // TODO: GET https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots/current
         // TODO: GET https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots/launchable
         // TODO: OPTION https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots
@@ -2226,18 +2227,36 @@ var NicoLiveHelper = {
             }
         }
 
-        let handleMessage = function( request, sender, sendResponse ){
-            switch( request.cmd ){
-            case '':
-                break;
-
-            default:
-                console.log( request );
-                console.log( sender );
-                break;
+        if( !this.isCaster() ){
+            // 視聴者のときの再生履歴取得
+            // TODO 主コメ内の動画IDを再生されたものとして扱い再生履歴に追加しているので二重に追加されてしまう
+            let handleMessage = async ( request, sender, sendResponse ) => {
+                switch( request.cmd ){
+                case 'playvideo':
+                    if( request.lvid == this.getLiveId() ){
+                        console.log( `Now playing sm|nm ${request.video_id}` );
+                        let vinfo;
+                        try{
+                            // TODO 今はsmのみ
+                            vinfo = await this.getVideoInfo( `sm${request.video_id}` );
+                        }catch( e ){
+                        }
+                        if( vinfo ){
+                            NicoLiveHistory.addHistory( vinfo );
+                            this.currentVideo = vinfo;
+                            let now = GetCurrentTime();
+                            this.currentVideo.play_begin = now;
+                            this.currentVideo.play_end = now + parseInt( this.currentVideo.length_ms / 1000 );
+                            $( '#remaining-time-main' ).text( vinfo.title );
+                        }
+                    }
+                    break;
+                default:
+                    break;
+                }
             }
+            browser.runtime.onMessage.addListener( handleMessage );
         }
-        browser.runtime.onMessage.addListener( handleMessage );
 
         setInterval( ( ev ) => {
             try{
