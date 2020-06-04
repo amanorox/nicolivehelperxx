@@ -245,16 +245,14 @@ var NicoLiveHelper = {
     },
 
     /**
-     * ボリューム変更をする.
+     * 再生中動画のボリューム変更をする.
      * スライダーを動かすたびにリクエストするとエラーになるので
      * 2秒の猶予を持って実行する。
      */
     changeVolume: function(){
         if( this.currentVideo ){
             clearTimeout( this._change_volume_timer );
-            this._change_volume_timer = setTimeout( () => {
-                this.playVideo( this.currentVideo, true );
-            }, 2000 );
+            // TODO やり方が変わったがXHRやWebsocketの通信ではないので調べられず方法不明
         }
     },
 
