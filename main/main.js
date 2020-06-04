@@ -1361,6 +1361,7 @@ var NicoLiveHelper = {
             console.log( body.begin );
             this.live_begintime = parseInt( (new Date( body.begin )).getTime() / 1000 );
             this.live_endtime = parseInt( (new Date( body.end )).getTime() / 1000 );
+            $( '#live-progress' ).attr( 'title', `終了日時: ${GetDateTimeString( this.live_endtime * 1000, 1 )}` );
             break;
 
         case 'ping':
