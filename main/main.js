@@ -236,6 +236,14 @@ var NicoLiveHelper = {
         xhr.send();
     },
 
+
+    pingCommentServer: function(){
+        let ping = [
+            {"ping": {"content": "rs:0"}}, {"ping": {"content": "ps:0"}},
+            {"ping": {"content": "pf:0"}}, {"ping": {"content": "rf:0"}}];
+        this._comment_svr.send( JSON.stringify( ping ) );
+    },
+
     /**
      * ボリューム変更をする.
      * スライダーを動かすたびにリクエストするとエラーになるので
@@ -465,6 +473,7 @@ var NicoLiveHelper = {
                     }
                 };
                 data['repeat'] = false;
+                data['enableAddViewCount'] = true;
             }
             xhr.send( JSON.stringify( data ) );
         } );
@@ -544,6 +553,7 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     getCurrentVideo: async function(){
+        // https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv326328556/bots/current
         let current = await HttpGet( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current` );
         if( current.status !== 404 ){
             let contents = JSON.parse( current.responseText );
@@ -1285,13 +1295,11 @@ var NicoLiveHelper = {
                 "thread": {
                     "thread": "" + room.threadId,
                     "version": "20061206",
-                    "fork": 0,
                     "user_id": this.nico_user_id,
                     "res_from": lines,
                     "with_global": 1,
                     "scores": 1,
-                    "nicoru": 0,
-                    "userkey": ""
+                    "nicoru": 0
                 }
             };
             this._comment_svr.send( JSON.stringify( str ) );
@@ -1309,6 +1317,11 @@ var NicoLiveHelper = {
                     this.sendStartupComment();
                 }
             })();
+
+            setInterval( () => {
+                // 1分間隔で空データ送ってるのでkeepalive用っぽい
+                this._comment_svr.send( '' );
+            }, 60 * 1000 );
         } );
         this._comment_svr.onReceive( ( ev ) => {
             let data = JSON.parse( ev.data );
@@ -1349,6 +1362,11 @@ var NicoLiveHelper = {
         case 'schedule':
             console.log( body.begin );
             this.live_begintime = parseInt( (new Date( body.begin )).getTime() / 1000 );
+            this.live_endtime = parseInt( (new Date( body.end )).getTime() / 1000 );
+            break;
+
+        case 'ping':
+            this._comm.send( '{"type":"pong"}' );
             break;
 
             // TODO 以下はobsolete?
@@ -1432,9 +1450,6 @@ var NicoLiveHelper = {
             }
 
             break;
-        case 'ping':
-            this._comm.send( JSON.stringify( {"type": "pong", "body": {}} ) );
-            break;
         }
     },
 
@@ -1450,7 +1465,6 @@ var NicoLiveHelper = {
         this._comm.onConnect( ( ev ) => {
             console.log( `websocket connected. ${this.liveProp.program.nicoliveProgramId}` );
             setTimeout( () => {
-
                 let initmsg = {
                     "type": "startWatching",
                     "data": {
@@ -1464,6 +1478,10 @@ var NicoLiveHelper = {
                 }
                 this._comm.send( JSON.stringify( initmsg ) );
             }, 100 );
+
+            setInterval( () => {
+                this._comm.send( '{"type":"keepSeat"}' );
+            }, 30 * 1000 );
         } );
         this._comm.onReceive( ( ev ) => {
             let data = JSON.parse( ev.data );
