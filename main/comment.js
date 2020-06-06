@@ -121,7 +121,7 @@ var NicoLiveComment = {
      */
     // http://www.nicovideo.jp/user/... から登録(サムネから取れない時)
     getProfileName2: function( user_id, defname ){
-        let p = new Promise( ( resolve, reject ) =>{
+        let p = new Promise( ( resolve, reject ) => {
             let req = new XMLHttpRequest();
             if( !req ){
                 resolve( defname );
@@ -159,7 +159,7 @@ var NicoLiveComment = {
      */
     // http:/ext.nicovideo.jp/thumb_user/... から登録(こちら優先)
     getProfileName: function( user_id, defname ){
-        let p = new Promise( ( resolve, reject ) =>{
+        let p = new Promise( ( resolve, reject ) => {
             let req = new XMLHttpRequest();
             if( !req ){
                 reject( '[Unknown]' );
@@ -369,10 +369,10 @@ var NicoLiveComment = {
                 let addr = item.getAttribute( 'href' );
                 let id = addr.match( /(sm|nm|so)\d+|\d{10}/ );
                 if( id ){
-                    item.addEventListener( 'mouseover', ( ev ) =>{
+                    item.addEventListener( 'mouseover', ( ev ) => {
                         NicoLiveHelper.showThumbnail( ev, id[0] );
                     } );
-                    item.addEventListener( 'mouseout', ( ev ) =>{
+                    item.addEventListener( 'mouseout', ( ev ) => {
                         NicoLiveHelper.hideThumbnail();
                     } );
                 }
@@ -469,7 +469,11 @@ var NicoLiveComment = {
             break;
 
         case 'set_kotehan':
-            let defvalue = await this.getProfileName( user_id, this.getKotehan( user_id ) );
+            let defvalue = '';
+            try{
+                defvalue = await this.getProfileName( user_id, this.getKotehan( user_id ) );
+            }catch( e ){
+            }
             let name = window.prompt( `${user_id}のコテハンを設定`, defvalue );
             this.setKotehan( user_id, name );
             break;
@@ -483,11 +487,11 @@ var NicoLiveComment = {
     },
 
     initUI: function(){
-        $( '#btn-send-comment' ).on( 'click', ( ev ) =>{
+        $( '#btn-send-comment' ).on( 'click', ( ev ) => {
             this.sendComment();
         } );
 
-        $( '#txt-input-comment' ).on( 'keydown', ( ev ) =>{
+        $( '#txt-input-comment' ).on( 'keydown', ( ev ) => {
             if( ev.keyCode == 13 ){
                 this.sendComment();
             }
@@ -536,6 +540,6 @@ var NicoLiveComment = {
     }
 };
 
-window.addEventListener( "unload", ( ev ) =>{
+window.addEventListener( "unload", ( ev ) => {
     NicoLiveComment.destroy();
 }, false );
