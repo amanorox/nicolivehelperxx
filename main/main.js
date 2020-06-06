@@ -1929,6 +1929,27 @@ var NicoLiveHelper = {
         }
     },
 
+    startLive: function(){
+        let uri = `https://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/segment?state=on_air`;
+        let xhr = CreateXHR( 'PUT', uri );
+        xhr.onreadystatechange = async () => {
+            if( xhr.readyState != 4 ) return;
+            let error = JSON.parse( xhr.responseText );
+            if( xhr.status != 200 ){
+                console.log( `${xhr.status} ${xhr.responseText}` );
+                this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+            }else{
+                if( error.meta.status == 200 ){
+                    this.showAlert( '放送を開始しました' );
+                }else{
+                    this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+                }
+            }
+        };
+
+        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
+        xhr.send();
+    },
 
     updateVideoProgress: function( now ){
         // 動画の経過時間
