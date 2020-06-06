@@ -1669,7 +1669,7 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     isAvailableInNewLive: function( video_id ){
-        let url = `http://live2.nicovideo.jp/unama/api/v3/contents/${video_id}`;
+        let url = `https://lapi.spi.nicovideo.jp/v1/tools/live/quote/services/video/contents/${video_id}`;
         let p = new Promise( ( resolve, reject ) => {
             let xhr = CreateXHR( 'GET', url );
             xhr.onreadystatechange = () => {
@@ -1680,7 +1680,11 @@ var NicoLiveHelper = {
                     return;
                 }
                 let res = JSON.parse( xhr.responseText );
-                resolve( res.data );
+                if( res.meta.status == 200 ){
+                    resolve( res.data.quotable );
+                }else{
+                    resolve( false );
+                }
             };
             xhr.send();
         } );

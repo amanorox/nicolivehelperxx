@@ -128,6 +128,8 @@ var NicoLiveRequest = {
                 let flg = true;
                 vinfo.no_live_play = flg ? 0 : 1;
             }
+            let f = await NicoLiveHelper.isAvailableInNewLive( q.video_id );
+            vinfo.no_live_play = vinfo.no_live_play || !f;
 
             this.counter[vinfo.request_user_id] = this.counter[vinfo.request_user_id] || 0;
             let code = this.checkRequest( vinfo );
@@ -522,7 +524,7 @@ var NicoLiveRequest = {
 
     getRequestTime: function(){
         let length = 0;
-        this.request.forEach( ( item ) =>{
+        this.request.forEach( ( item ) => {
             if( !item.no_live_play && !item.is_played ){
                 length += item.length_ms;
             }
@@ -632,28 +634,28 @@ var NicoLiveRequest = {
     },
 
     initUI: function(){
-        $( document ).on( 'click', '#request-table-body .nico-video-row button', ( ev ) =>{
+        $( document ).on( 'click', '#request-table-body .nico-video-row button', ( ev ) => {
             this.onButtonClicked( ev );
         } );
 
-        $( '#btn-shuffle-request' ).on( 'click', ( ev ) =>{
+        $( '#btn-shuffle-request' ).on( 'click', ( ev ) => {
             this.shuffleRequests();
         } );
 
-        $( '#menu-remove-all-requests' ).on( 'click', ( ev ) =>{
+        $( '#menu-remove-all-requests' ).on( 'click', ( ev ) => {
             this.removeAllRequests();
         } );
 
-        $( '#menu-sort-by-comment-no' ).on( 'click', ( ev ) =>{
+        $( '#menu-sort-by-comment-no' ).on( 'click', ( ev ) => {
             this.sortRequestByCommentNo();
         } );
 
-        $( '#btn-add-request' ).on( 'click', ( ev ) =>{
+        $( '#btn-add-request' ).on( 'click', ( ev ) => {
             let str = $( '#input-request-video' ).val();
             this.addRequests( str );
         } );
 
-        $( '#input-request-video' ).on( 'keydown', ( ev ) =>{
+        $( '#input-request-video' ).on( 'keydown', ( ev ) => {
             if( ev.keyCode === 13 ){
                 let str = $( '#input-request-video' ).val();
                 this.addRequests( str );
@@ -662,7 +664,7 @@ var NicoLiveRequest = {
 
         let no = localStorage.getItem( 'request-setno' ) || 0;
         $( '#sel-request-set' ).val( no );
-        $( '#sel-request-set' ).on( 'change', ( ev ) =>{
+        $( '#sel-request-set' ).on( 'change', ( ev ) => {
             this.changeSet();
             localStorage.setItem( 'request-setno', $( '#sel-request-set' ).val() * 1 );
         } );
@@ -719,7 +721,7 @@ var NicoLiveRequest = {
                             'code': code,
                             'title': ''
                         };
-                        (async () =>{
+                        (async () => {
                             await browser.storage.local.set( {'jwid': jwid} );
                             OpenLink( 'http://www2.jasrac.or.jp/eJwid/main.jsp?trxID=F00100' );
                         })();
