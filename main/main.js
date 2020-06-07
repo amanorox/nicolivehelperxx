@@ -2117,6 +2117,17 @@ var NicoLiveHelper = {
             }
         } );
 
+        $( '#btn-add-toriaezu-mylist' ).on( 'click', ( ev ) => {
+            let video_id = this.currentVideo.video_id;
+            // coxxx lvxxx xxx から登録
+            let additional_msg = `${NicoLiveHelper.getCommunityId()} ${NicoLiveHelper.getLiveId()} ${NicoLiveHelper.getLiveTitle()} から登録`;
+            if( ev.metaKey || ev.ctrlKey ){
+                additional_msg = window.prompt( 'マイリストコメントを入力してください', additional_msg );
+                additional_msg = additional_msg || '';
+            }
+            NicoLiveMylist.addMylist( 'default', video_id, additional_msg );
+        } );
+
         /* 再生中動画インジケーターのメニュー操作 */
         $.contextMenu( {
             selector: '#progressbar',
