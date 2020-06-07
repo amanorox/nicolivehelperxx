@@ -1036,19 +1036,6 @@ var NicoLiveHelper = {
      */
     processCasterComment: function( chat ){
         let text = chat.text_notag;
-
-        if( text.match( /((sm|nm)\d+)/ ) ){
-            // 視聴者のとき、主コメ内の動画IDを再生したものとみなして再生履歴に追加する.
-            let video_id = RegExp.$1;
-            let f = async () => {
-                let flg = true;
-                if( flg ){
-                    let vinfo = await this.getVideoInfo( video_id );
-                    NicoLiveHistory.addHistory( vinfo );
-                }
-            };
-            f();
-        }
     },
 
     /**
@@ -2271,7 +2258,6 @@ var NicoLiveHelper = {
 
         if( !this.isCaster() ){
             // 視聴者のときの再生履歴取得
-            // TODO 主コメ内の動画IDを再生されたものとして扱い再生履歴に追加しているので二重に追加されてしまう
             let handleMessage = async ( request, sender, sendResponse ) => {
                 switch( request.cmd ){
                 case 'playvideo':
@@ -2279,9 +2265,12 @@ var NicoLiveHelper = {
                         console.log( `Now playing sm|nm ${request.video_id}` );
                         let vinfo;
                         try{
-                            // TODO 今はsmのみ
                             vinfo = await this.getVideoInfo( `sm${request.video_id}` );
                         }catch( e ){
+                            try{
+                                vinfo = await this.getVideoInfo( `nm${request.video_id}` );
+                            }catch( e ){
+                            }
                         }
                         if( vinfo ){
                             NicoLiveHistory.addHistory( vinfo );
