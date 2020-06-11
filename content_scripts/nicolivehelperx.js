@@ -43,6 +43,19 @@ setTimeout( () => {
 }, 100 );
 
 
+(async () => {
+    let result = await browser.storage.local.get( 'config' );
+    console.log( 'Config loaded' );
+    console.log( result.config );
+
+    if( result.config['auto-extend'] ){
+        let auto_extend_button = document.querySelector( 'button[aria-label="現在OFF"]' );
+        if( auto_extend_button ) auto_extend_button.click();
+    }
+})();
+
+
+// DOMの変更監視して再生された動画を得る
 const callback = function( mutationsList, observer ){
     // Use traditional 'for loops' for IE 11
     for( let mutation of mutationsList ){

@@ -87,19 +87,19 @@ function InitTwitterUI(){
     $( '#twitter-tweet_play_started' ).prop( 'checked', Config.twitter.tweet_play_started );
 
     // PINを取得
-    $( '#btn-twitter-get-pin' ).on( 'click', ( ev ) =>{
+    $( '#btn-twitter-get-pin' ).on( 'click', ( ev ) => {
         Twitter.getRequestToken();
     } );
 
     // 認証
-    $( '#btn-twitter-auth' ).on( 'click', ( ev ) =>{
+    $( '#btn-twitter-auth' ).on( 'click', ( ev ) => {
         let pin = $( '#txt-twitter-pin' ).val();
         // console.log(pin);
         Twitter.getAccessToken( pin );
     } );
 
     // つぶやきテスト
-    $( '#btn-test-tweet' ).on( 'click', ( ev ) =>{
+    $( '#btn-test-tweet' ).on( 'click', ( ev ) => {
         let text = $( '#txt-tweet-test' ).val();
         this.updateStatus( text );
     } );
@@ -121,6 +121,7 @@ async function LoadOptions(){
     LoadValue( 'startup-comment', config, Config['startup-comment'] );
     LoadBool( 'play-in-time', config, Config['play-in-time'] );
     LoadBool( 'startup-comment-by-community', config, Config['startup-comment-by-community'] );
+    LoadBool( 'auto-extend', config, Config['auto-extend'] );
 
     /* リクエスト */
     LoadValue( 'max-request', config, Config['max-request'] );
@@ -164,10 +165,10 @@ async function LoadOptions(){
 
     $( '#twitter-screen-name' ).text( config['twitter-screen-name'] );
     /* Twitter認証 */
-    $( '#btn-twitter-get-pin' ).on( 'click', ( ev ) =>{
+    $( '#btn-twitter-get-pin' ).on( 'click', ( ev ) => {
         Twitter.getRequestToken();
     } );
-    $( '#btn-twitter-auth' ).on( 'click', async ( ev ) =>{
+    $( '#btn-twitter-auth' ).on( 'click', async ( ev ) => {
         let pin = $( '#txt-twitter-pin' ).val();
         let result = await Twitter.getAccessToken( pin );
         $( '#twitter-screen-name' ).text( `@${result['screen_name']}` );
@@ -206,6 +207,7 @@ function SaveOptions( ev ){
     SaveValue( 'startup-comment', config );
     SaveBool( 'play-in-time', config );
     SaveBool( 'startup-comment-by-community', config );
+    SaveBool( 'auto-extend', config );
 
     /* リクエスト */
     SaveInt( 'max-request', config );
@@ -274,7 +276,7 @@ window.addEventListener( 'load', async function( ev ){
 
     LoadOptions();
 
-    $( '#btn-test-talk' ).on( 'click', ( ev ) =>{
+    $( '#btn-test-talk' ).on( 'click', ( ev ) => {
         let text = $( '#webspeech-test-text' ).val();
         let select = $( '#webspeech-select-voice' );
         let n = select.get( 0 ).selectedIndex;
@@ -284,7 +286,7 @@ window.addEventListener( 'load', async function( ev ){
         Talker.speech2( text, n, vol, spd );
     } );
 
-    $( '#btn-save-config' ).on( 'click', ( ev ) =>{
+    $( '#btn-save-config' ).on( 'click', ( ev ) => {
         SaveOptions( ev );
     } );
 } );
