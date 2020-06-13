@@ -23,20 +23,21 @@
 
 console.log( `${document.location.href}` );
 
-let items = EvaluateXPath( document, "//a[@class='def']/@href" );
-console.log( items );
-
-let videos = [];
-for( let i = 0, item; item = items[i]; i++ ){
-    // console.log( item.textContent );
-    if( item.textContent.match( /.*\/(.*)$/ ) ){
-        videos.push( RegExp.$1 );
-    }
-}
-
-browser.runtime.onMessage.addListener( request =>{
+browser.runtime.onMessage.addListener( request => {
     console.log( "Message from the background script:" );
     console.log( request.cmd );
+
+    let items = EvaluateXPath( document, "//a[@class='video titleText']/@href" );
+    console.log( items );
+
+    let videos = [];
+    for( let i = 0, item; item = items[i]; i++ ){
+        // console.log( item.textContent );
+        if( item.textContent.match( /.*\/(.*)$/ ) ){
+            videos.push( RegExp.$1 );
+        }
+    }
+
     CopyToClipboard( videos.join( ' ' ) );
 
     return Promise.resolve( {response: videos} );
