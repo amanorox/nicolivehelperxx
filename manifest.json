@@ -40,6 +40,15 @@
     },
     {
       "matches": [
+        "https://live2.nicovideo.jp/create*"
+      ],
+      "js": [
+        "content_scripts/autocreate.js"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
         "*://com.nicovideo.jp/video/*"
       ],
       "js": [

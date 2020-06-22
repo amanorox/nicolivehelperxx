@@ -22,11 +22,18 @@
   <script src="options.js"></script>
 </head>
 <body>
+<div>
+  <button id="btn-save-config">設定を保存</button>
+</div>
+
 <div style="overflow:auto; height:480px;">
 
 
   <fieldset>
     <legend>進行</legend>
+    <div>
+      <label><input type="checkbox" id="auto-start">自動で放送開始する</label>
+    </div>
     <div style="margin-bottom:8px;">
       <label><input type="checkbox" id="auto-extend">放送時に自動延長ボタンON</label>
     </div>
@@ -218,9 +225,6 @@
     </div>
   </fieldset>
 
-</div>
-<div>
-  <button id="btn-save-config">設定を保存</button>
 </div>
 
 </body>

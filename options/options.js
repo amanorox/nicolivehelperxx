@@ -122,6 +122,7 @@ async function LoadOptions(){
     LoadBool( 'play-in-time', config, Config['play-in-time'] );
     LoadBool( 'startup-comment-by-community', config, Config['startup-comment-by-community'] );
     LoadBool( 'auto-extend', config, Config['auto-extend'] );
+    LoadBool( 'auto-start', config, Config['auto-start'] );
 
     /* リクエスト */
     LoadValue( 'max-request', config, Config['max-request'] );
@@ -208,6 +209,7 @@ function SaveOptions( ev ){
     SaveBool( 'play-in-time', config );
     SaveBool( 'startup-comment-by-community', config );
     SaveBool( 'auto-extend', config );
+    SaveBool( 'auto-start', config );
 
     /* リクエスト */
     SaveInt( 'max-request', config );

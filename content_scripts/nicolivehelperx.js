@@ -47,10 +47,20 @@ setTimeout( () => {
     let result = await browser.storage.local.get( 'config' );
     console.log( 'Config loaded' );
     console.log( result.config );
-
+    
     if( result.config['auto-extend'] ){
-        let auto_extend_button = document.querySelector( 'button[aria-label="現在OFF"]' );
-        if( auto_extend_button ) auto_extend_button.click();
+        setTimeout( () => {
+            let auto_extend_button = document.querySelector( 'button[aria-label="現在OFF"]' );
+            if( auto_extend_button ) auto_extend_button.click();
+        }, 2000 );
+    }
+
+    if( result.config['auto-start'] ){
+        // 放送開始ボタン
+        setTimeout( () => {
+            let start_button = document.querySelector( 'button[class*="__button"][value="番組開始"]' );
+            if( start_button ) start_button.click();
+        }, 2000 );
     }
 })();
 
