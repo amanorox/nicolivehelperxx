@@ -2036,6 +2036,14 @@ var NicoLiveHelper = {
                 'width=640,height=480,menubar=no,toolbar=no,location=no' );
         } );
 
+        // 次枠を作成
+        $( '#create-next-live' ).on( 'click', async ( ev ) => {
+            let tab = browser.tabs.create( {
+                'active': true,
+                'url': `https://live2.nicovideo.jp/create?reuse_id=${this.getLiveId()}`
+            } );
+        } );
+
         // 連続コメントを開く
         $( '#continuous-comment' ).on( 'click', ( ev ) => {
             window.open( 'cc/continuouscomment.html', 'nicolivehelperx_cc',
