@@ -28,18 +28,25 @@ let newelem = document.createElement( 'label' );
 let inp = document.createElement( 'input' )
 inp.setAttribute( 'type', 'checkbox' );
 newelem.appendChild( inp );
-newelem.appendChild( document.createTextNode( '10秒経過後に放送を開始' ) );
+newelem.appendChild( document.createTextNode( '10秒経過後に放送を開始[NicoLive Helper] - ' ) );
+countdown = document.createTextNode( '' );
+newelem.appendChild( countdown );
 newelem.setAttribute( 'style', 'margin:32px auto 0;' );
 
 elem.parentElement.insertBefore( newelem, elem.nextSibling );
 
 let _timer;
+let _countdown;
 
 (async () => {
     let result = await browser.storage.local.get( 'autocreate' );
     if( result.autocreate ){
         console.log( 'autocreate enabled.' );
         inp.checked = true;
+        countdown.textContent = '10';
+        _countdown = setInterval( () => {
+            countdown.textContent = parseInt( countdown.textContent ) - 1;
+        }, 1000 );
         _timer = setTimeout( () => {
             document.querySelector( 'button[class*="__submit-button"]' ).click();
         }, 10 * 1000 );
@@ -52,6 +59,10 @@ let _timer;
             console.log( 'autocreate enabled.' );
             browser.storage.local.set( {'autocreate': true} );
 
+            countdown.textContent = '10';
+            _countdown = setInterval( () => {
+                countdown.textContent = parseInt( countdown.textContent ) - 1;
+            }, 1000 );
             _timer = setTimeout( () => {
                 document.querySelector( 'button[class*="__submit-button"]' ).click();
             }, 10 * 1000 );
@@ -59,6 +70,8 @@ let _timer;
             console.log( 'autocreate disabled.' );
             browser.storage.local.set( {'autocreate': false} );
             clearTimeout( _timer );
+            clearInterval( _countdown );
+            countdown.textContent = '';
         }
     } );
 
