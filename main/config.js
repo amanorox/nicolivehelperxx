@@ -32,6 +32,7 @@ var Config = {
     'auto-open': false,
     'auto-close': false,
     'auto-create-next': false,
+    'auto-close-livepage': false,
 
     'videoinfo-interval': 7,
     'vinfo-command-1': '',

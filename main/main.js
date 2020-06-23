@@ -1114,7 +1114,7 @@ var NicoLiveHelper = {
      * 受信したコメントを処理する.
      * @param chat{Comment}
      */
-    processComment: function( chat ){
+    processComment: async function( chat ){
         NicoLiveComment.addComment( chat );
 
         switch( chat.premium ){
@@ -1128,11 +1128,20 @@ var NicoLiveHelper = {
                 this._autoplay_timer = null;
                 this.setAutoplayIndicator( false );
 
-                if( Config['auto-create-next'] ){
+                if( this.isCaster() && Config['auto-create-next'] ){
                     let tab = browser.tabs.create( {
                         'active': true,
                         'url': `https://live2.nicovideo.jp/create?reuse_id=${this.getLiveId()}`
                     } );
+                }
+
+                if( Config['auto-close-livepage'] ){
+                    let tabs = await browser.tabs.query( {url: 'https://*.nicovideo.jp/watch/lv*'} );
+                    for( let tab of tabs ){
+                        if( tab.url.indexOf( this.getLiveId() ) >= 0 ){
+                            await browser.tabs.remove( tab.id )
+                        }
+                    }
                 }
 
                 if( Config['auto-close'] ){
