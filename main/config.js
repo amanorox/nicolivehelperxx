@@ -29,8 +29,6 @@ var Config = {
     'startup-comment-by-community': false,
     'auto-extend': false,
     'auto-start': false,
-    'auto-open': false,
-    'auto-close': false,
 
     'videoinfo-interval': 7,
     'vinfo-command-1': '',

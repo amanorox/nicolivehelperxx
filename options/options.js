@@ -123,8 +123,6 @@ async function LoadOptions(){
     LoadBool( 'startup-comment-by-community', config, Config['startup-comment-by-community'] );
     LoadBool( 'auto-extend', config, Config['auto-extend'] );
     LoadBool( 'auto-start', config, Config['auto-start'] );
-    LoadBool( 'auto-open', config, Config['auto-open'] );
-    LoadBool( 'auto-close', config, Config['auto-close'] );
 
     /* リクエスト */
     LoadValue( 'max-request', config, Config['max-request'] );
@@ -212,8 +210,6 @@ function SaveOptions( ev ){
     SaveBool( 'startup-comment-by-community', config );
     SaveBool( 'auto-extend', config );
     SaveBool( 'auto-start', config );
-    SaveBool( 'auto-open', config );
-    SaveBool( 'auto-close', config );
 
     /* リクエスト */
     SaveInt( 'max-request', config );
