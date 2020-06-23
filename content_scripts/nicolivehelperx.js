@@ -28,6 +28,7 @@ let data = {};
 data = JSON.parse( document.querySelector( '#embedded-data' ).getAttribute( 'data-props' ) );
 data._type = 'html5';
 console.log( `html5 nicolive player detected.` );
+console.log( data );
 
 // アドオンをリロードしたときにbackground-scriptのロードより先に来てしまうので適当に待つ
 setTimeout( () => {
@@ -47,7 +48,7 @@ setTimeout( () => {
     let result = await browser.storage.local.get( 'config' );
     console.log( 'Config loaded' );
     console.log( result.config );
-    
+
     if( result.config['auto-extend'] ){
         setTimeout( () => {
             let auto_extend_button = document.querySelector( 'button[aria-label="現在OFF"]' );
@@ -61,6 +62,16 @@ setTimeout( () => {
             let start_button = document.querySelector( 'button[class*="__button"][value="番組開始"]' );
             if( start_button ) start_button.click();
         }, 2000 );
+    }
+
+    if( result.config['auto-open'] ){
+        setTimeout( () => {
+            let lvid = data.program.nicoliveProgramId;
+            let sending = browser.runtime.sendMessage( {
+                cmd: 'open-nicolivehelper',
+                request_id: lvid
+            } );
+        }, 1000 );
     }
 })();
 

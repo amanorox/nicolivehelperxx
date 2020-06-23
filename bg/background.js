@@ -49,12 +49,12 @@ function OpenWindow( url, lvid ){
         height: 480
     } );
     creating.then(
-        ( windowInfo ) =>{
+        ( windowInfo ) => {
             console.log( `Created window: ${windowInfo.id}` );
             console.log( windowInfo );
             windowList[lvid] = windowInfo;
         },
-        ( error ) =>{
+        ( error ) => {
             console.log( `create window Error: ${error}` );
         } );
 }
@@ -76,7 +76,7 @@ function OpenNicoLiveHelperX2( request_id ){
     if( windowList[lvid] ){
         let win_id = windowList[lvid].id;
         browser.windows.get( win_id, {populate: true} ).then(
-            ( windowInfo ) =>{
+            ( windowInfo ) => {
                 for( tabInfo of windowInfo.tabs ){
                     // console.log( tabInfo.url );
                     if( tabInfo.title.indexOf( 'New NicoLive Helper' ) >= 0 ){
@@ -87,7 +87,7 @@ function OpenNicoLiveHelperX2( request_id ){
                     }
                 }
             },
-            ( error ) =>{
+            ( error ) => {
                 console.log( `get window error: ${error}` );
                 OpenWindow( url, lvid );
             } );
@@ -114,7 +114,7 @@ function getLiveInfo( request, sender, sendResponse ){
     let lvid = request.request_id;
     let info = liveProp["" + lvid];
     // sendResponse( info );
-    return new Promise( ( resolve ) =>{
+    return new Promise( ( resolve ) => {
         resolve( info );
     } );
 }
@@ -125,10 +125,10 @@ function isAvailableInNewLive( request, sender, sendResponse ){
     console.log( request );
     let video_id = request.video_id;
     let url = `http://live2.nicovideo.jp/unama/api/v3/contents/${video_id}`;
-    let p = new Promise( ( resolve, reject ) =>{
+    let p = new Promise( ( resolve, reject ) => {
         console.log( 'checking live available...' );
         let xhr = CreateXHR( 'GET', url );
-        xhr.onreadystatechange = () =>{
+        xhr.onreadystatechange = () => {
             if( xhr.readyState != 4 ) return;
             if( xhr.status != 200 ){
                 //let err = JSON.parse( xhr.responseText );
@@ -159,6 +159,11 @@ function handleMessage( request, sender, sendResponse ){
         return isAvailableInNewLive( request, sender, sendResponse );
         break;
 
+    case 'open-nicolivehelper':
+        let lvid = request.request_id;
+        OpenNicoLiveHelperX2( [lvid, lvid] );
+        break;
+
     default:
         console.log( request );
         console.log( sender );
@@ -168,7 +173,7 @@ function handleMessage( request, sender, sendResponse ){
 
 browser.runtime.onMessage.addListener( handleMessage );
 
-browser.browserAction.onClicked.addListener( ( tab ) =>{
+browser.browserAction.onClicked.addListener( ( tab ) => {
     let request_id = tab.url.match( /nicovideo.jp\/watch\/((lv|co|ch)\d+)/ );
     OpenNicoLiveHelperX2( request_id );
 } );
@@ -182,7 +187,7 @@ async function CopyVideoId( tab ){
 
 }
 
-browser.contextMenus.onClicked.addListener( ( info, tab ) =>{
+browser.contextMenus.onClicked.addListener( ( info, tab ) => {
     console.log( "Item " + info.menuItemId + " clicked " + "in tab " + tab.id );
     let request_id = tab.url.match( /nicovideo.jp\/watch\/((lv|co|ch)\d+)/ );
 
