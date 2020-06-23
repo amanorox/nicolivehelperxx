@@ -125,6 +125,7 @@ async function LoadOptions(){
     LoadBool( 'auto-start', config, Config['auto-start'] );
     LoadBool( 'auto-open', config, Config['auto-open'] );
     LoadBool( 'auto-close', config, Config['auto-close'] );
+    LoadBool( 'auto-create-next', config, Config['auto-create-next'] );
 
     /* リクエスト */
     LoadValue( 'max-request', config, Config['max-request'] );
@@ -214,6 +215,7 @@ function SaveOptions( ev ){
     SaveBool( 'auto-start', config );
     SaveBool( 'auto-open', config );
     SaveBool( 'auto-close', config );
+    SaveBool( 'auto-create-next', config );
 
     /* リクエスト */
     SaveInt( 'max-request', config );

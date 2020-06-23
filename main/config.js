@@ -31,6 +31,7 @@ var Config = {
     'auto-start': false,
     'auto-open': false,
     'auto-close': false,
+    'auto-create-next': false,
 
     'videoinfo-interval': 7,
     'vinfo-command-1': '',

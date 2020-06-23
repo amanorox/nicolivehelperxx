@@ -1127,6 +1127,17 @@ var NicoLiveHelper = {
                 clearTimeout( this._autoplay_timer );
                 this._autoplay_timer = null;
                 this.setAutoplayIndicator( false );
+
+                if( Config['auto-create-next'] ){
+                    let tab = browser.tabs.create( {
+                        'active': true,
+                        'url': `https://live2.nicovideo.jp/create?reuse_id=${this.getLiveId()}`
+                    } );
+                }
+
+                if( Config['auto-close'] ){
+                    window.close();
+                }
             }
             if( chat.date < this.connecttime ) return;
             if( this.isCaster() ) return;
