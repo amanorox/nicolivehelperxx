@@ -28,7 +28,7 @@ let newelem = document.createElement( 'label' );
 let inp = document.createElement( 'input' )
 inp.setAttribute( 'type', 'checkbox' );
 newelem.appendChild( inp );
-newelem.appendChild( document.createTextNode( '10秒経過後に放送を開始[NicoLive Helper] - ' ) );
+newelem.appendChild( document.createTextNode( '10秒経過後に自動で放送を開始[NicoLive Helper] - ' ) );
 countdown = document.createTextNode( '' );
 newelem.appendChild( countdown );
 newelem.setAttribute( 'style', 'margin:32px auto 0;' );
@@ -41,6 +41,12 @@ let _countdown;
 (async () => {
     let result = await browser.storage.local.get( 'autocreate' );
     if( result.autocreate ){
+        let title = document.querySelector( 'div[class*="__program-title-field"] > input[type="text"]' );
+        var vals = title.value.match( /^(.*?)(part.*?)(\d+)(.*?)$/i );
+        if( vals ){
+            title.value = vals[1] + vals[2] + (parseInt( vals[3] ) + 1) + vals[4];
+        }
+
         console.log( 'autocreate enabled.' );
         inp.checked = true;
         countdown.textContent = '10';
