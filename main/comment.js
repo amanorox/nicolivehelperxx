@@ -113,70 +113,22 @@ var NicoLiveComment = {
         UserManage.createTable();
     },
 
-    /**
-     * プロフィールから名前を取得
-     * @param user_id ユーザーID
-     * @param defname
-     * @param postfunc
-     */
-    // http://www.nicovideo.jp/user/... から登録(サムネから取れない時)
-    getProfileName2: function( user_id, defname ){
-        let p = new Promise( ( resolve, reject ) => {
-            let req = new XMLHttpRequest();
-            if( !req ){
-                resolve( defname );
-                return;
-            }
-            req.onreadystatechange = function(){
-                if( req.readyState == 4 ){
-                    if( req.status == 200 ){
-                        try{
-                            let text = req.responseText;
-                            let name = text.match( /<h2><strong>(.*)<\/strong>/ )[1];
-                            if( name ){
-                                // 名前の取得に成功
-                                resolve( name );
-                            }
-                        }catch( x ){
-                            resolve( defname );
-                        }
-                    }else{
-                        resolve( defname );
-                    }
-                }
-            };
-            req.open( 'GET', 'http://www.nicovideo.jp/user/' + user_id );
-            req.send( "" );
-
-        } );
-        return p;
-    },
 
     /**
      * プロフィールの名前を取得.
      * @param user_id ユーザーID
      * @param defname デフォルト名
      */
-    // http:/ext.nicovideo.jp/thumb_user/... から登録(こちら優先)
     getProfileName: function( user_id, defname ){
         let p = new Promise( ( resolve, reject ) => {
-            let req = new XMLHttpRequest();
-            if( !req ){
-                reject( '[Unknown]' );
-                return;
-            }
+            let req = CreateXHR( 'GET', `https://api.live2.nicovideo.jp/api/v1/user/nickname?userId=${user_id}` );
             req.onreadystatechange = function(){
                 if( req.readyState == 4 ){
                     if( req.status == 200 ){
                         try{
                             let text = req.responseText;
-                            let name = text.match( /><strong>(.*)<\/strong>/ )[1];
-                            if( name ){
-                                // 成功
-                                resolve( name );
-                            }else{
-                                reject( '[Unknown]' )
-                            }
+                            let data = JSON.parse( text );
+                            resolve( data.data.nickname );
                         }catch( x ){
                             reject( '[Unknown]' )
                         }
@@ -185,8 +137,7 @@ var NicoLiveComment = {
                     }
                 }
             };
-            req.open( 'GET', 'http://ext.nicovideo.jp/thumb_user/' + user_id );
-            req.send( "" );
+            req.send();
         } );
         return p;
     },
@@ -215,13 +166,8 @@ var NicoLiveComment = {
         }
 
         if( chat.user_id.match( /^\d+$/ ) ){
-            // ユーザIDからプロフィール参照登録.
-            let name;
-            try{
-                name = await this.getProfileName( chat.user_id, chat.user_id );
-            }catch( e ){
-                name = await this.getProfileName2( chat.user_id, chat.user_id );
-            }
+            // ユーザIDから名前を取得.
+            let name = await this.getProfileName( chat.user_id, chat.user_id );
             this.setKotehan( chat.user_id, name );
         }
     },
