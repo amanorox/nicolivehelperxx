@@ -195,9 +195,6 @@ var NicoLiveComment = {
             // 運営コメント
             NicoLiveHelper.postCasterComment( `${name}:${str}`, color, '', false );
             break;
-        case 2:
-            NicoLiveHelper.postBSPComment( color, str, name );
-            break;
         }
     },
 
@@ -372,9 +369,6 @@ var NicoLiveComment = {
             NicoLiveHelper.sendComment( mail, comment );
             break;
 
-        case 2: // BSPコメ
-            NicoLiveHelper.postBSPComment( mail, comment, '' );
-            break;
         }
     },
 
@@ -475,7 +469,6 @@ var NicoLiveComment = {
                 return menuobj;
             },
         } );
-
     },
 
     init: function(){

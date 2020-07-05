@@ -40,6 +40,8 @@ var NicoLiveHelper = {
     threadId: '',
     postkey: '',
 
+    chatbot_config: [],
+
     _autoplay_timer: null,  ///< 自動再生用タイマー
 
     /**
@@ -850,15 +852,6 @@ var NicoLiveHelper = {
             this.postCasterComment( body, mail, name, true );
             break;
 
-        case 'press':
-            if( body.match( /(.*?)\s+(.*?)\s+(.*)/ ) ){
-                let color = RegExp.$1;
-                let name = RegExp.$2;
-                let t = RegExp.$3;
-                t = this.replaceMacros( t, this.currentVideo );
-                this.postBSPComment( color, t, name );
-            }
-            break;
         }
     },
 
@@ -918,54 +911,6 @@ var NicoLiveHelper = {
         form.append( 'command', mail );
         form.append( 'name', name );
         form.append( 'isPermanent', isPerm );
-        xhr.send( form );
-    },
-
-    /**
-     * 使えるカラーは white,red,green,blue,cyan,yellow,purple,pink,orange,niconicowhite
-     * @param color
-     * @param text
-     * @param name
-     */
-    postBSPComment: function( color, text, name, cnt ){
-        if( !this.hasBSP() && !this.isCaster() ){
-            this.showAlert( `バックステージパスがありません` );
-            return;
-        }
-        if( !text ) return;
-
-        let url = `http://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/bsp_comment`;
-        // let url = this.liveProp.program.bsp.commentPostApiUrl;
-        color = color || 'cyan';
-        name = name || this.liveProp.user.nickname;
-        cnt = cnt || 0;
-
-        let xhr = CreateXHR( 'POST', url );
-        xhr.onreadystatechange = async () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                let error = JSON.parse( xhr.responseText );
-                console.log( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
-                if( error.meta.errorMessage.match( /リクエスト間隔が短/ ) ){
-                    let ms = this.calcBackoffTime( cnt + 1 );
-                    console.log( `${ms}ミリ 秒待機します(${cnt + 1})` );
-                    await Wait( ms );
-                    this.postBSPComment( color, text, name, cnt + 1 );
-                }else{
-                    this.showAlert( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
-                }
-                return;
-            }
-            console.log( `Comment posted: ${xhr.responseText}` );
-        };
-
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-
-        let form = new FormData();
-        form.append( 'text', text );
-        form.append( 'name', name );
-        form.append( 'color', color );
         xhr.send( form );
     },
 
@@ -1110,6 +1055,28 @@ var NicoLiveHelper = {
         }
     },
 
+    processChatbot: function( chat ){
+        if( !Config['enable-chatbot'] ) return;
+        for( let conf of this.chatbot_config ){
+            let from = conf.msg_from;
+            let keyword = conf.keyword;
+            let reply = conf.reply;
+
+            if( chat.text_notag.indexOf( keyword ) < 0 ) continue;
+            // 視聴者コメントの場合
+            if( from == 0 && (chat.premium == 0 || chat.premium == 1) ){
+                this.postCasterComment( reply, '', '', false );
+                break;
+            }
+            // それ以外の場合
+            if( from == 1 && (chat.premium != 0 && chat.premium != 1) ){
+                if( chat.user_id == this.nico_user_id ) break;
+                this.postCasterComment( reply, '', '', false );
+                break;
+            }
+        }
+    },
+
     /**
      * 受信したコメントを処理する.
      * @param chat{Comment}
@@ -1118,9 +1085,9 @@ var NicoLiveHelper = {
         NicoLiveComment.addComment( chat );
 
         switch( chat.premium ){
-        case 2: // チャンネル生放送の場合、こちらの場合もあり。/infoコマンドなどもココ
-        case 3: // 運営コメント
-        case 7: // 運営コメントにnameパラメータ付けるとこれになる？ BSPもこれになる
+        case 2: // チャンネル生放送の場合、こちらの場合もあり。
+        case 3: // 運営コメント(/nicoad, /infoもこちら)
+        case 7: // 運営コメントにnameパラメータ付けるとこれになる
             if( chat.text.match( /^\/disconnect/ ) ){
                 this.showAlert( `放送が終了しました`, true );
                 this.live_endtime = 0;
@@ -1163,6 +1130,7 @@ var NicoLiveHelper = {
                     }
                 }
             }
+            this.processChatbot( chat );
             break;
 
         case 1: // プレミアム会員
@@ -1182,6 +1150,7 @@ var NicoLiveHelper = {
                     );
                 }
             }
+            this.processChatbot( chat );
             break;
 
         default:
@@ -2225,6 +2194,9 @@ var NicoLiveHelper = {
         }
     },
 
+    /**
+     * 初期化
+     */
     init: async function(){
         let extension_info = await browser.management.getSelf();
         console.log( `New NicoLive Helper ${extension_info.version}` );
@@ -2238,6 +2210,10 @@ var NicoLiveHelper = {
         console.log( Config );
         this.updatePNameWhitelist();
 
+        result = await browser.storage.local.get( 'chatbot' );
+        this.chatbot_config = result.chatbot;
+
+        // 設定が更新されたときの再読み込み
         browser.storage.onChanged.addListener( ( changes, area ) => {
             if( changes.config ){
                 MergeSimpleObject( Config, changes.config.newValue );
@@ -2245,6 +2221,11 @@ var NicoLiveHelper = {
                 Twitter.init(); // 認証トークンをConfigから読ませるために
                 NicoLiveRequest.loadNGVideo();
                 this.updatePNameWhitelist();
+            }
+            if( changes.chatbot ){
+                let newchatbot = changes.chatbot.newValue;
+                console.log( newchatbot );
+                this.chatbot_config = newchatbot;
             }
         } );
 

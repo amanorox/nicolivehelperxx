@@ -23,7 +23,7 @@
 var ChatBotTable;
 
 
-window.addEventListener( 'load', ( ev ) => {
+window.addEventListener( 'load', async ( ev ) => {
     ChatBotTable = new Tabulator( "#opt-chatbot-table", {
         height: 240,
         // data:tabledata, //assign data to table
@@ -51,7 +51,19 @@ window.addEventListener( 'load', ( ev ) => {
         ]
     } );
 
+    let result = await browser.storage.local.get( 'chatbot' );
+    let chatbot_config = result.chatbot;
+    ChatBotTable.setData( chatbot_config );
+
     $( '#btn-add' ).on( 'click', ( ev ) => {
         ChatBotTable.addRow( {} );
+    } );
+    $( '#btn-save-config' ).on( 'click', ( ev ) => {
+        let data = ChatBotTable.getData();
+        console.log( data );
+
+        browser.storage.local.set( {
+            'chatbot': data
+        } );
     } );
 } );
