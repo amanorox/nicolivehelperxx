@@ -1056,6 +1056,7 @@ var NicoLiveHelper = {
     },
 
     processChatbot: function( chat ){
+        if( !this.isCaster() ) return;
         if( !Config['enable-chatbot'] ) return;
         for( let conf of this.chatbot_config ){
             let from = conf.msg_from;
