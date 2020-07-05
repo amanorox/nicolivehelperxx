@@ -942,21 +942,8 @@ var NicoLiveHelper = {
             mail += " 184";
         }
 
-        let t = Math.min( this.live_begintime, this.liveProp.program.openTime );
+        let t = this.liveProp.program.vposBaseTime;
         let vpos = Math.floor( (GetCurrentTime() - t) * 100 );
-        // console.log( vpos );
-        // let chat = [{
-        //     "chat": {
-        //         "thread": this.threadId,
-        //         "vpos": vpos,
-        //         "mail": mail,
-        //         "ticket": this.ticket,
-        //         "user_id": this.nico_user_id,
-        //         "premium": this.is_premium,
-        //         "postkey": this.postkey,
-        //         "content": text
-        //     }
-        // }];
 
         let chat = [{"ping": {"content": "rs:1"}}, {"ping": {"content": "ps:5"}}, {
             "chat": {
