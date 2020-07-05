@@ -49,6 +49,7 @@ var Config = {
     'auto-kotehan': false,
     'comment-dispay-lines': 500,
     'comment-backlog-num': 50,
+    'enable-chatbot': false,
 
     'max-request': 0,
     'request-send-reply': false,

@@ -152,6 +152,7 @@ async function LoadOptions(){
     LoadBool( 'auto-kotehan', config, false );
     LoadValue( 'comment-dispay-lines', config, 500 );
     LoadValue( 'comment-backlog-num', config, 50 );
+    LoadBool( 'enable-chatbot', config, false );
 
     /* 動画情報 */
     LoadValue( 'videoinfo-interval', config, 7 );
@@ -243,6 +244,7 @@ function SaveOptions( ev ){
     SaveBool( 'auto-kotehan', config );
     SaveInt( 'comment-dispay-lines', config );
     SaveInt( 'comment-backlog-num', config );
+    SaveBool( 'enable-chatbot', config );
 
     /* 動画情報 */
     SaveInt( 'videoinfo-interval', config );
