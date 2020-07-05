@@ -38,7 +38,7 @@ window.addEventListener( 'load', async ( ev ) => {
                 editorParams: {"0": "視聴者", "1": "システムメッセージ"},
                 width: 150
             },
-            {title: "キーワード(正規表現)", field: "keyword", editor: "input"},
+            {title: "キーワード", field: "keyword", editor: "input"},
             {title: "応答メッセージ", field: "reply", hozAlign: "left", editor: "input"},
         ],
         rowContextMenu: [
