@@ -56,10 +56,15 @@ setTimeout( () => {
         }, 2000 );
     }
 
+    let start_button = document.querySelector( 'button[class*="__button"][value="番組開始"]' );
+    if( start_button ){
+        start_button.addEventListener( 'click', ( ev ) => {
+            console.log( 'start button clicked' );
+        } );
+    }
     if( result.config['auto-start'] ){
         // 放送開始ボタン
         setTimeout( () => {
-            let start_button = document.querySelector( 'button[class*="__button"][value="番組開始"]' );
             if( start_button ) start_button.click();
         }, 2000 );
     }
