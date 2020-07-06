@@ -1332,6 +1332,12 @@ var NicoLiveHelper = {
             this._comm.send( '{"type":"pong"}' );
             break;
 
+        case 'seat':
+            clearInterval( this._seat_interval );
+            this._seat_interval = setInterval( () => {
+                this._comm.send( '{"type":"keepSeat"}' );
+            }, body.keepIntervalSec * 1000 );
+            break;
         }
     },
 
@@ -1360,10 +1366,6 @@ var NicoLiveHelper = {
                 }
                 this._comm.send( JSON.stringify( initmsg ) );
             }, 100 );
-
-            setInterval( () => {
-                this._comm.send( '{"type":"keepSeat"}' );
-            }, 30 * 1000 );
         } );
         this._comm.onReceive( ( ev ) => {
             let data = JSON.parse( ev.data );
