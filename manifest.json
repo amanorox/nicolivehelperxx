@@ -24,7 +24,8 @@
     "tabs",
     "activeTab",
     "clipboardWrite",
-    "downloads"
+    "downloads",
+    "identity"
   ],
   "content_scripts": [
     {

@@ -1049,18 +1049,21 @@ var NicoLiveHelper = {
             let from = conf.msg_from;
             let keyword = conf.keyword;
             let reply = conf.reply;
+            let regexp = conf.regexp;
 
-            if( chat.text_notag.indexOf( keyword ) < 0 ) continue;
-            // 視聴者コメントの場合
-            if( from == 0 && (chat.premium == 0 || chat.premium == 1) ){
-                this.postCasterComment( reply, '', '', false );
-                break;
-            }
-            // それ以外の場合
-            if( from == 1 && (chat.premium != 0 && chat.premium != 1) ){
-                if( chat.user_id == this.nico_user_id ) break;
-                this.postCasterComment( reply, '', '', false );
-                break;
+            if( regexp && chat.text_notag.match( new RegExp( keyword ) ) ||
+                !regexp && chat.text_notag.indexOf( keyword ) >= 0 ){
+                // 視聴者コメントの場合
+                if( from == 0 && (chat.premium == 0 || chat.premium == 1) ){
+                    this.postCasterComment( reply, '', '', false );
+                    break;
+                }
+                // それ以外の場合
+                if( from == 1 && (chat.premium != 0 && chat.premium != 1) ){
+                    if( chat.user_id == this.nico_user_id ) break;
+                    this.postCasterComment( reply, '', '', false );
+                    break;
+                }
             }
         }
     },
