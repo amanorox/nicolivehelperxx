@@ -40,6 +40,7 @@ window.addEventListener( 'load', async ( ev ) => {
             },
             {title: "キーワード", field: "keyword", editor: "input"},
             {title: "応答メッセージ", field: "reply", hozAlign: "left", editor: "input"},
+            {title: "正規表現", field: "regexp", editor: "tickCross", width: 100}
         ],
         rowContextMenu: [
             {
