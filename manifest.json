@@ -14,7 +14,6 @@
     "48": "icons/icon-48.png",
     "96": "icons/icon-96.png"
   },
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
   "permissions": [
     "*://*.nicovideo.jp/*",
     "https://api.twitter.com/*",
@@ -24,8 +23,7 @@
     "tabs",
     "activeTab",
     "clipboardWrite",
-    "downloads",
-    "identity"
+    "downloads"
   ],
   "content_scripts": [
     {
