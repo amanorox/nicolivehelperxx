@@ -2053,7 +2053,7 @@ var NicoLiveHelper = {
         } );
 
         /**/
-        $( '#remaining-time-main' ).on( 'click', ( ev ) => {
+        $( '#progressbar' ).on( 'click', ( ev ) => {
             this._remain_timer_format_type++;
             this._remain_timer_format_type %= 3;
             this.updateVideoProgress( GetCurrentTime() );
