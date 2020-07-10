@@ -43,6 +43,7 @@ var NicoLiveHelper = {
     chatbot_config: [],
 
     _autoplay_timer: null,  ///< 自動再生用タイマー
+    _remain_timer_format_type: 0,   ///< 再生中動画の時間表示フォーマット種別(0:残り時間,1:経過時間,2:動作再生終了時の枠残り時間)
 
     /**
      * 放送に接続しているかを返す.
@@ -1845,7 +1846,20 @@ var NicoLiveHelper = {
             let current = this.currentVideo;
             let remain = current.play_end - now;
             if( remain < 0 ) remain = 0;
-            $( '#remaining-time-main' ).text( `${current.title}(-${GetTimeString( remain )})` );
+
+            let text = `${current.title}(-${GetTimeString( remain )})`;
+            switch( this._remain_timer_format_type ){
+            case 0:
+            default:
+                break;
+            case 1:
+                text = `${current.title}(${GetTimeString( now - current.play_begin )})`;
+                break;
+            case 2:
+                text = `${current.title}(枠残り${GetTimeString( this.live_endtime - current.play_end )})`;
+                break;
+            }
+            $( '#remaining-time-main' ).text( text );
 
             let len = parseInt( current.length_ms / 1000 );
             let t = now - current.play_begin;
@@ -2026,6 +2040,7 @@ var NicoLiveHelper = {
             }
         } );
 
+        /* とりマイ追加 */
         $( '#btn-add-toriaezu-mylist' ).on( 'click', ( ev ) => {
             let video_id = this.currentVideo.video_id;
             // coxxx lvxxx xxx から登録
@@ -2035,6 +2050,13 @@ var NicoLiveHelper = {
                 additional_msg = additional_msg || '';
             }
             NicoLiveMylist.addMylist( 'default', video_id, additional_msg );
+        } );
+
+        /**/
+        $( '#remaining-time-main' ).on( 'click', ( ev ) => {
+            this._remain_timer_format_type++;
+            this._remain_timer_format_type %= 3;
+            this.updateVideoProgress( GetCurrentTime() );
         } );
 
         /* 再生中動画インジケーターのメニュー操作 */
