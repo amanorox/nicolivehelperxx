@@ -1230,7 +1230,7 @@ var NicoLiveHelper = {
                     "with_global": 1,
                     "scores": 1,
                     "nicoru": 0,
-                    // "threadKey": ""  // TODO threadKeyを追加する
+                    "threadKey": room.yourPostKey
                 }
             };
             this._comment_svr.send( JSON.stringify( str ) );
