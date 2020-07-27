@@ -915,15 +915,6 @@ var NicoLiveHelper = {
         xhr.send( form );
     },
 
-
-    /**
-     * @param threadId
-     * @private
-     */
-    getpostkey: function( threadId ){
-        this._comm.send( '{"type":"getPostkey"}' );
-    },
-
     /**
      * 視聴者コメントをする.
      * @param mail
@@ -935,31 +926,24 @@ var NicoLiveHelper = {
         text = text.replace( /((...)[-](....)[-](.))/g, "$2=$3=$4" );
         text = text.replace( /<br>/ig, "\n" );
 
-        this._getpostkeyfunc = () => {
-            this.sendComment( mail, text );
-        };
-
-        if( Config['comment-184'] ){
-            mail += " 184";
-        }
-
         let t = this.liveProp.program.vposBaseTime;
         let vpos = Math.floor( (GetCurrentTime() - t) * 100 );
 
-        let chat = [{"ping": {"content": "rs:1"}}, {"ping": {"content": "ps:5"}}, {
-            "chat": {
-                "thread": this.threadId,
+        let chat = {
+            "type": "postComment",
+            "data": {
+                "text": text,
                 "vpos": vpos,
-                "mail": mail,
-                "ticket": this.ticket,
-                "user_id": this.nico_user_id,
-                "premium": this.is_premium,
-                "content": text,
-                "postkey": this.postkey
+                "color": "white",
+                "size": "medium",
+                "position": "naka"
             }
-        }, {"ping": {"content": "pf:5"}}, {"ping": {"content": "rf:1"}}]
-        // console.log( chat );
-        this._comment_svr.send( JSON.stringify( chat ) );
+        };
+        if( Config['comment-184'] ){
+            chat.data.isAnonymous = true;
+        }
+        // コメントサーバーの方に送らず、こちらに a.live2 の方に送る
+        this._comm.send( JSON.stringify( chat ) );
         // console.log( chat );
     },
 
@@ -1164,27 +1148,6 @@ var NicoLiveHelper = {
             console.log( `ticket:${this.ticket}` );
         }
 
-        if( data.chat_result ){
-            let result = data.chat_result;
-            switch( result.status ){
-            case 4:
-                // コメントするには postkey の再取得が必要
-                this.getpostkey();
-                break;
-
-            case 1:
-                // 送信テキストが空のときに発生する
-                this.showAlert( `コメントの送信エラー(送信過多など)です` );
-                break;
-            case 8:
-                this.showAlert( `コメントが長すぎます` );
-                break;
-
-            default:
-                break;
-            }
-        }
-
         if( data.chat ){
             let chat = data.chat;
             // 念のために従来のように値がなかった時のため
@@ -1246,6 +1209,7 @@ var NicoLiveHelper = {
         console.log( `server type: ${room.messageServer.type}` );
 
         this.threadId = room.threadId;
+        this.yourPostKey = room.yourPostKey;
 
         // sub-protocol "msg.nicovideo.jp#json"
         this._comment_svr = new Comm( room.messageServer.uri, "msg.nicovideo.jp#json" );
@@ -1265,7 +1229,8 @@ var NicoLiveHelper = {
                     "res_from": lines,
                     "with_global": 1,
                     "scores": 1,
-                    "nicoru": 0
+                    "nicoru": 0,
+                    // "threadKey": ""  // TODO threadKeyを追加する
                 }
             };
             this._comment_svr.send( JSON.stringify( str ) );
@@ -1310,15 +1275,6 @@ var NicoLiveHelper = {
             // data.data.messageServer.type;
             // data.data.threadId;
             this.connectCommentServer( body );
-            this.getpostkey();
-            break;
-        case 'postkey':
-            this.postkey = body.value;
-            console.log( `postkey:${this.postkey}` );
-            if( "function" === typeof this._getpostkeyfunc ){
-                this._getpostkeyfunc();
-                this._getpostkeyfunc = null;
-            }
             break;
 
         case 'statistics':
@@ -1341,6 +1297,13 @@ var NicoLiveHelper = {
             this._seat_interval = setInterval( () => {
                 this._comm.send( '{"type":"keepSeat"}' );
             }, body.keepIntervalSec * 1000 );
+            break;
+
+        case 'postCommentResult':
+            // let a = {
+            //     "type": "postCommentResult",
+            //     "data": {"chat": {"content": "aaa", "mail": "white naka medium", "anonymity": 0, "restricted": false}}
+            // }
             break;
         }
     },
