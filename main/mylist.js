@@ -100,7 +100,7 @@ var NicoLiveMylist = {
                 let result = JSON.parse( xmlhttp.responseText );
                 switch( result.status ){
                 case 'ok':
-                    NicoLiveHelper.showAlert( `${video_id}をとりあえずマイリストしました` );
+                    NicoLiveHelper.showAlert( `${video_id}を"あとで見る"しました` );
                     break;
                 case 'fail':
                     NicoLiveHelper.showAlert( result.error.description );
@@ -134,7 +134,7 @@ var NicoLiveMylist = {
                     NicoLiveMylist.addDeflistExec( video_id, item_id, token, additional_msg );
                 }catch( x ){
                     console.log( x );
-                    NicoLiveHelper.showAlert( 'とりあえずマイリスト追加に失敗しました' );
+                    NicoLiveHelper.showAlert( 'あとで見るに追加に失敗しました' );
                 }
             }
         };

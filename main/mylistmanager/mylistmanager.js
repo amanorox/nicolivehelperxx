@@ -275,7 +275,7 @@ let MyListManager = {
 
         let folder = $( '#mylist' );
         let elem = document.createElement( 'option' );
-        $( elem ).text( 'とりあえずマイリスト' )
+        $( elem ).text( 'あとで見る' )
         $( elem ).attr( 'value', 'default' );
         folder.append( elem );
 
@@ -742,7 +742,7 @@ let MyListManager = {
         let video_id = this.registerMylistQueue.shift();
         if( mylist_id == 'default' ){
             this.finishAddingMyList();
-            SetStatusBarText( "現在、とりあえずマイリストにはマイリスト登録できません。" );
+            SetStatusBarText( "現在、あとで見るにはマイリスト登録できません。" );
             return;
         }
 

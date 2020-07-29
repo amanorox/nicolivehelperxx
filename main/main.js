@@ -2065,7 +2065,7 @@ var NicoLiveHelper = {
                     }
                 };
                 try{
-                    menuobj.items.add_mylist.items['0_default'] = {name: 'とりあえずマイリスト'};
+                    menuobj.items.add_mylist.items['0_default'] = {name: 'あとで見る'};
                     for( let i = 0, item; item = NicoLiveMylist.mylists.mylistgroup[i]; i++ ){
                         let k = `${i + 1}_${item.id}`;
                         let v = item.name;
