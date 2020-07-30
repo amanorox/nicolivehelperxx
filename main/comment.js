@@ -100,11 +100,12 @@ var NicoLiveComment = {
 
         if( name != user_id ){
             this.namemap[user_id] = {
-                "name": name
+                "name": name,
+                "time": GetCurrentTime()
             };
         }else{
             // delete this.namemap[user_id];
-            this.namemap[user_id] = '';
+            this.namemap[user_id] = {};
         }
         console.log( `Kotehan(${user_id})=${name}` );
 
@@ -472,10 +473,21 @@ var NicoLiveComment = {
     },
 
     init: function(){
+        this.namemap = JSON.parse( localStorage.getItem( 'kotehan' ) ) || {};
         this.initUI();
         this.table = document.querySelector( '#comment-table' );
     },
     destroy: function(){
+        let id;
+        let now = GetCurrentTime();
+        for( id in this.namemap ){
+            if( id > 0 ) continue;
+            // 1週間経った匿名ユーザーのものは削除.
+            if( now - this.namemap[id].time > 7 * 24 * 60 * 60 ){
+                delete this.namemap[id];
+            }
+        }
+        localStorage.setItem( 'kotehan', JSON.stringify( this.namemap ) );
     }
 };
 
