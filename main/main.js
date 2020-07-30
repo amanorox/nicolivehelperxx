@@ -929,14 +929,24 @@ var NicoLiveHelper = {
         let t = this.liveProp.program.vposBaseTime;
         let vpos = Math.floor( (GetCurrentTime() - t) * 100 );
 
+        let color;
+        let size;
+        let position;
+
+        color = mail.match( /(white2|red2|pink2|orange2|yellow2|green2|cyan2|blue2|purple2|black2|white|red|pink|orange|yellow|green|cyan|blue|purple|black|#[0-9A-Fa-f]+)/ ) || "white";
+        size = mail.match( /(medium|big|small)/ ) || "medium";
+        position = mail.match( /(ue|naka|shita)/ ) || "naka";
+        if( Array.isArray( color ) ) color = color[0];
+        if( Array.isArray( size ) ) size = size[0];
+        if( Array.isArray( position ) ) position = position[0];
         let chat = {
             "type": "postComment",
             "data": {
                 "text": text,
                 "vpos": vpos,
-                "color": "white",
-                "size": "medium",
-                "position": "naka"
+                "color": color,
+                "size": size,
+                "position": position
             }
         };
         if( Config['comment-184'] ){
