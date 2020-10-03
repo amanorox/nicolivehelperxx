@@ -583,6 +583,12 @@ var NicoLiveHelper = {
                 return tmp;
             }
             switch( p ){
+            default:
+                if( p.match( /^reqstat:(.*?):(.*?)$/ ) ){
+                    let msgs = [RegExp.$1, RegExp.$2];
+                    tmp = msgs[NicoLiveHelper.getRequestAllowedStatus()];
+                }
+                break;
             case 'id':
                 if( !info.video_id ) break;
                 tmp = info.video_id;
@@ -746,10 +752,7 @@ var NicoLiveHelper = {
         }
         // D名
         t = str.match( /.*[^E][D]$/ );
-        if( t ){
-            return true;
-        }
-        return false;
+        return !!t;
     },
 
     /**
