@@ -39,7 +39,7 @@ var NicoLiveStock = {
             let vinfo = await NicoLiveHelper.getVideoInfo( q.video_id );
             vinfo.video_id = q.video_id;
 
-            if( !this.stock.find( ( s ) =>{
+            if( !this.stock.find( ( s ) => {
                 return s.video_id == q.video_id;
             } ) ){
                 // 重複していないものだけ追加
@@ -58,7 +58,7 @@ var NicoLiveStock = {
         }
 
         clearTimeout( this._timer );
-        this._timer = setTimeout( () =>{
+        this._timer = setTimeout( () => {
             this.saveStocks();
         }, 1500 );
     },
@@ -329,6 +329,18 @@ var NicoLiveStock = {
     },
 
     /**
+     * ストックの動画情報を最新に更新する.
+     */
+    updateMovieInfoAll: function(){
+        let str = "";
+        for( let i = 0, item; item = this.stock[i]; i++ ){
+            str += item.video_id + " ";
+        }
+        this.removeAllStocks();
+        this.addStocks( str );
+    },
+
+    /**
      * リクエスト一覧表示を再作成する.
      */
     redrawStocks: function(){
@@ -453,7 +465,7 @@ var NicoLiveStock = {
      * 再生済み動画を削除
      */
     removePlayedStock: function(){
-        let newstock = this.stock.filter( ( s ) =>{
+        let newstock = this.stock.filter( ( s ) => {
             return !s.is_played
         } );
         this.stock = newstock;
@@ -488,7 +500,7 @@ var NicoLiveStock = {
 
     getStockTime: function(){
         let length = 0;
-        this.stock.forEach( ( item ) =>{
+        this.stock.forEach( ( item ) => {
             if( !item.no_live_play && !item.is_played ){
                 length += item.length_ms;
             }
@@ -648,7 +660,7 @@ var NicoLiveStock = {
             let file = ev.dataTransfer.files[0];
             if( file.name.match( /\.txt$/ ) ){
                 let fileReader = new FileReader();
-                fileReader.onload = ( ev ) =>{
+                fileReader.onload = ( ev ) => {
                     let txt = ev.target.result;
                     this.addStocks( txt );
                 };
@@ -663,38 +675,42 @@ var NicoLiveStock = {
     },
 
     initUI: function(){
-        $( document ).on( 'click', '#stock-table-body .nico-video-row button', ( ev ) =>{
+        $( document ).on( 'click', '#stock-table-body .nico-video-row button', ( ev ) => {
             this.onButtonClicked( ev );
         } );
 
-        $( '#btn-shuffle-stock' ).on( 'click', ( ev ) =>{
+        $( '#btn-shuffle-stock' ).on( 'click', ( ev ) => {
             this.shuffleStocks();
         } );
 
-        $( '#menu-remove-all-stock' ).on( 'click', ( ev ) =>{
+        $( '#menu-stock-update-all' ).on( 'click', ( ev ) => {
+            this.updateMovieInfoAll();
+        } );
+
+        $( '#menu-remove-all-stock' ).on( 'click', ( ev ) => {
             this.removeAllStocks();
         } );
 
-        $( '#menu-remove-played' ).on( 'click', ( ev ) =>{
+        $( '#menu-remove-played' ).on( 'click', ( ev ) => {
             this.removePlayedStock();
         } );
 
         //--- 並べ替えメニュー
-        $( '#stock-sort-ascending-order a' ).on( 'click', ( ev ) =>{
+        $( '#stock-sort-ascending-order a' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "href" );
             this.sortStock( target, 1 );
         } );
-        $( '#stock-sort-descending-order a' ).on( 'click', ( ev ) =>{
+        $( '#stock-sort-descending-order a' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "href" );
             this.sortStock( target, -1 );
         } );
 
-        $( '#btn-add-stock' ).on( 'click', ( ev ) =>{
+        $( '#btn-add-stock' ).on( 'click', ( ev ) => {
             let str = $( '#input-stock-video' ).val();
             this.addStocks( str );
         } );
 
-        $( '#input-stock-video' ).on( 'keydown', ( ev ) =>{
+        $( '#input-stock-video' ).on( 'keydown', ( ev ) => {
             if( ev.keyCode === 13 ){
                 let str = $( '#input-stock-video' ).val();
                 this.addStocks( str );
@@ -702,13 +718,13 @@ var NicoLiveStock = {
         } );
 
         // ストックへのデータドロップによる追加処理
-        $( '#stock-view' ).on( 'dragenter', ( ev ) =>{
+        $( '#stock-view' ).on( 'dragenter', ( ev ) => {
             ev.preventDefault();
         } );
-        $( '#stock-view' ).on( 'dragover', ( ev ) =>{
+        $( '#stock-view' ).on( 'dragover', ( ev ) => {
             ev.preventDefault();
         } );
-        $( '#stock-view' ).on( 'drop', ( ev ) =>{
+        $( '#stock-view' ).on( 'drop', ( ev ) => {
             // console.log( ev );
             ev.preventDefault();
 
@@ -717,13 +733,13 @@ var NicoLiveStock = {
 
         let no = localStorage.getItem( 'stock-setno' ) || 0;
         $( '#sel-stock-set' ).val( no );
-        $( '#sel-stock-set' ).on( 'change', ( ev ) =>{
+        $( '#sel-stock-set' ).on( 'change', ( ev ) => {
             this.changeSet();
             localStorage.setItem( 'stock-setno', $( '#sel-stock-set' ).val() * 1 );
         } );
 
         //--- マイリスト読み込み
-        $( '#menu-stock-mylist' ).on( 'click', ( ev ) =>{
+        $( '#menu-stock-mylist' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "nico_grp_id" );
             if( target != undefined ){
                 this.addStockFromMylist( target );
