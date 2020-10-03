@@ -579,6 +579,16 @@ var NicoLiveStock = {
         this.saveStocks();
     },
 
+    clearPlayedFlag: function( video_id ){
+        for( let vinfo of this.stock ){
+            if( vinfo.video_id == video_id ){
+                vinfo.is_played = false;
+            }
+        }
+        this.redrawStocks();
+        this.saveStocks();
+    },
+
     /**
      * ストックのコンテキストメニューの実行.
      * @param key

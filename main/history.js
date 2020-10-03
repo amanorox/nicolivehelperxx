@@ -89,10 +89,10 @@ var NicoLiveHistory = {
         link.setAttribute( "href", "http://www.nicovideo.jp/watch/" + vinfo.video_id );
 
         thumbnail_image.src = vinfo.thumbnail_url;
-        thumbnail_image.addEventListener( 'mouseover', ( ev ) =>{
+        thumbnail_image.addEventListener( 'mouseover', ( ev ) => {
             NicoLiveHelper.showThumbnail( ev, vinfo.video_id );
         } );
-        thumbnail_image.addEventListener( 'mouseout', ( ev ) =>{
+        thumbnail_image.addEventListener( 'mouseout', ( ev ) => {
             NicoLiveHelper.hideThumbnail();
         } );
 
@@ -142,6 +142,10 @@ var NicoLiveHistory = {
             OpenLink( 'http://www.nicovideo.jp/user/' + this.history[n].user_id );
             break;
 
+        case 'clear_stock_flag':
+            NicoLiveStock.clearPlayedFlag( this.history[n].video_id );
+            break;
+
         default:
             // マイリスト追加処理
             console.log( key );
@@ -175,19 +179,19 @@ var NicoLiveHistory = {
             }
         }
 
-        let f = () =>{
+        let f = () => {
             let type = disptype.val();
             let views = [$( '#txt-play-history' ), $( '#tbl-play-history' )];
             views[type].show();
             views[1 - type].hide();
         };
         let disptype = $( '#sel-history-display-type' );
-        disptype.on( 'change', ( ev ) =>{
+        disptype.on( 'change', ( ev ) => {
             f();
         } );
         f();
 
-        $( '#btn-clear-history' ).on( 'click', ( ev ) =>{
+        $( '#btn-clear-history' ).on( 'click', ( ev ) => {
             this.history = [];
             $( '#tbl-play-history-body' ).empty();
             $( '#txt-play-history' ).val( '' );
@@ -196,12 +200,12 @@ var NicoLiveHistory = {
             NicoLiveStock.clearAllPlayed();
         } );
 
-        $( '#txt-play-history' ).on( 'change', ( ev ) =>{
+        $( '#txt-play-history' ).on( 'change', ( ev ) => {
             this.save();
         } );
 
         // 再生履歴から動画IDのみをコピーする
-        $( '#copy-history-text' ).on( 'click', ( ev ) =>{
+        $( '#copy-history-text' ).on( 'click', ( ev ) => {
             let substring;
             let notes = $( '#txt-play-history' )[0];
             substring = notes.value.substr( notes.selectionStart, notes.selectionEnd - notes.selectionStart );
@@ -233,6 +237,8 @@ var NicoLiveHistory = {
                         },
                         "sep2": "---------",
                         "profile": {name: "投稿者プロフィール"},
+                        "sep3": "---------",
+                        "clear_stock_flag": {name: 'ストックの再生済みフラグをクリア'}
                     }
                 };
                 try{
