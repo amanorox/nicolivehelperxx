@@ -586,7 +586,7 @@ var NicoLiveHelper = {
             default:
                 if( p.match( /^reqstat:(.*?):(.*?)$/ ) ){
                     let msgs = [RegExp.$1, RegExp.$2];
-                    tmp = msgs[NicoLiveHelper.getRequestAllowedStatus()];
+                    tmp = msgs[ NicoLiveHelper.getRequestAllowedStatus()];
                 }
                 break;
             case 'id':
