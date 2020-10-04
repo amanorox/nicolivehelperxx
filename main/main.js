@@ -1105,6 +1105,8 @@ var NicoLiveHelper = {
                 }
             }
             if( chat.date < this.connecttime ) return;
+            this.processChatbot( chat );
+
             if( this.isCaster() ) return;
             this.processCasterComment( chat );
 
@@ -1119,7 +1121,6 @@ var NicoLiveHelper = {
                     }
                 }
             }
-            this.processChatbot( chat );
             break;
 
         case 1: // プレミアム会員
