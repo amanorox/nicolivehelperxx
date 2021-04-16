@@ -586,7 +586,7 @@ var NicoLiveHelper = {
             default:
                 if( p.match( /^reqstat:(.*?):(.*?)$/ ) ){
                     let msgs = [RegExp.$1, RegExp.$2];
-                    tmp = msgs[ NicoLiveHelper.getRequestAllowedStatus()];
+                    tmp = msgs[NicoLiveHelper.getRequestAllowedStatus()];
                 }
                 break;
             case 'id':
@@ -1332,19 +1332,21 @@ var NicoLiveHelper = {
         this._comm = new Comm( ws );
         this._comm.connect();
         this._comm.onConnect( ( ev ) => {
+            // はい。なおreconnectも省略可能なので {"type": "startWatching", "data":{}}  でよいです
             console.log( `websocket connected. ${this.liveProp.program.nicoliveProgramId}` );
             setTimeout( () => {
-                let initmsg = {
-                    "type": "startWatching",
-                    "data": {
-                        "stream": {
-                            "quality": "super_low",
-                            "protocol": "hls",
-                            "latency": "high",
-                            "chasePlay": false
-                        }, "room": {"protocol": "webSocket", "commentable": true}, "reconnect": false
-                    }
-                }
+                // let initmsg = {
+                //     "type": "startWatching",
+                //     "data": {
+                //         "stream": {
+                //             "quality": "super_low",
+                //             "protocol": "hls",
+                //             "latency": "high",
+                //             "chasePlay": false
+                //         }, "room": {"protocol": "webSocket", "commentable": true}, "reconnect": false
+                //     }
+                // };
+                let initmsg = {"type": "startWatching", "data": {}};
                 this._comm.send( JSON.stringify( initmsg ) );
             }, 100 );
         } );
