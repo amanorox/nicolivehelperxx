@@ -883,7 +883,8 @@ var NicoLiveHelper = {
             return;
         }
 
-        let url = this.liveProp.program.broadcasterComment.postApiUrl;
+        // let url = this.liveProp.program.broadcasterComment.postApiUrl;
+        let url = `https://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/broadcaster_comment`;
         // TODO 現状主コメは80文字までなのでマクロ展開する余地があるかどうか
         text = this.replaceMacros( text, this.currentVideo );
         text = text.replace( /<br>/ig, "\n" );
@@ -1153,7 +1154,7 @@ var NicoLiveHelper = {
      * @param data
      */
     onCommentReceived: function( data ){
-        console.log( data );    // TODO コメント受信したときのログ表示
+        // console.log( data );    // TODO コメント受信したときのログ表示
         if( data.thread ){
             // data.thread.ticket;
             // data.thread.last_res;
@@ -1281,7 +1282,7 @@ var NicoLiveHelper = {
     },
 
     onWatchCommandReceived: function( data ){
-        console.log( data ); // TODO 受信時のログ表示
+        // console.log( data ); // TODO 受信時のログ表示
         let body = data.data;
         switch( data.type ){
         case 'room':
