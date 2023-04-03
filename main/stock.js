@@ -648,17 +648,17 @@ var NicoLiveStock = {
     },
 
     dropToStock: function( ev ){
+        // console.log( ev );
         ev = ev.originalEvent;
-        console.log(ev);
         if( ev.dataTransfer.types.includes( "text/uri-list" ) ){
             // <a>アンカータグをドロップしたときURLの動画IDをストックに追加する.
-            let uri = ev.dataTransfer.mozGetDataAt( "text/uri-list", 0 );
+            let uri = ev.dataTransfer.getData( "text/uri-list" );
             this.addStocks( uri );
             return;
         }
         if( ev.dataTransfer.types.includes( "text/plain" ) ){
             // テキストをドロップしたときURLの動画IDをストックに追加する.
-            let uri = ev.dataTransfer.mozGetDataAt( "text/plain", 0 );
+            let uri = ev.dataTransfer.getData( "text/plain" );
             this.addStocks( uri );
             return;
         }
