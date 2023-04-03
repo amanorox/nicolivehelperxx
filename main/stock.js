@@ -39,7 +39,7 @@ var NicoLiveStock = {
             let vinfo = await NicoLiveHelper.getVideoInfo( q.video_id );
             vinfo.video_id = q.video_id;
 
-            if( !this.stock.find( ( s ) =>{
+            if( !this.stock.find( ( s ) => {
                 return s.video_id == q.video_id;
             } ) ){
                 // 重複していないものだけ追加
@@ -58,7 +58,7 @@ var NicoLiveStock = {
         }
 
         clearTimeout( this._timer );
-        this._timer = setTimeout( () =>{
+        this._timer = setTimeout( () => {
             this.saveStocks();
         }, 1500 );
     },
@@ -166,17 +166,17 @@ var NicoLiveStock = {
     },
 
     /**
-     * とりあえずマイリストからストックに追加する.
+     * あとで見る（とりあえずマイリスト）からストックに追加する.
      */
     addStockFromDeflist: function(){
         let f = function( xml, req ){
             if( req.readyState == 4 && req.status == 200 ){
                 let result = JSON.parse( req.responseText );
-                switch( result.status ){
-                case 'ok':
+                switch( result.meta.status ){
+                case 200:
                     let videos = new Array();
-                    for( let i = 0; i < result.mylistitem.length; i++ ){
-                        videos.push( result.mylistitem[i].item_data.video_id );
+                    for( let i = 0; i < result.data.watchLater.items.length; i++ ){
+                        videos.push( result.data.watchLater.items[i].watchId );
                     }
                     NicoLiveStock.addStocks( videos.join( ' ' ) );
                     break;
@@ -195,6 +195,7 @@ var NicoLiveStock = {
      * @param mylist_id マイリストのID
      */
     addStockFromMylist: function( mylist_id ){
+        console.log( `マイリスト${mylist_id}をストックに追加します。` );
         if( mylist_id == 'deflist' ){
             this.addStockFromDeflist();
             return;
@@ -237,7 +238,7 @@ var NicoLiveStock = {
                     NicoLiveStock.addStocks( videos.join( ' ' ) );
                 }else{
                     console.log( req );
-                    NicoLiveMylist.addStockFromMylistViaApi( mylist_id );
+                    NicoLiveStock.addStockFromMylistViaApi( mylist_id );
                 }
             }
         };
@@ -255,24 +256,19 @@ var NicoLiveStock = {
                     let mylistobj = JSON.parse( req.responseText );
                     let videos = [];
                     console.log( mylistobj );
-                    for( let item of mylistobj.mylistitem ){
-                        videos.push( item.item_data.video_id ); // もしくは watch_id
+                    for( let item of mylistobj.data.mylist.items ){
+                        videos.push( item.video.id ); // もしくは watch_id
                         let dat = {
-                            "pubDate": item.create_time,  // 登録日 UNIX time
+                            "pubDate": (new Date( item.addedAt )).getTime() / 1000,  // 登録日 UNIX time
                             "description": item.description
                         };
-                        NicoLiveMylist.mylist_itemdata["_" + item.item_data.video_id] = dat;
+                        NicoLiveMylist.mylist_itemdata["_" + item.video.id] = dat;
                     }
                     NicoLiveStock.addStocks( videos.join( ' ' ) );
                 }
             }
         };
-
-        // http://www.nicovideo.jp/my/mylist の token を得る
-        let url = "http://www.nicovideo.jp/my/mylist";
-        NicoApi.getApiToken( url, function( token ){
-            NicoApi.getMylist( mylist_id, token, f );
-        } );
+        NicoApi.getMylist( mylist_id, f );
     },
 
     loadStocks: async function(){
@@ -453,7 +449,7 @@ var NicoLiveStock = {
      * 再生済み動画を削除
      */
     removePlayedStock: function(){
-        let newstock = this.stock.filter( ( s ) =>{
+        let newstock = this.stock.filter( ( s ) => {
             return !s.is_played
         } );
         this.stock = newstock;
@@ -488,7 +484,7 @@ var NicoLiveStock = {
 
     getStockTime: function(){
         let length = 0;
-        this.stock.forEach( ( item ) =>{
+        this.stock.forEach( ( item ) => {
             if( !item.no_live_play && !item.is_played ){
                 length += item.length_ms;
             }
@@ -631,6 +627,7 @@ var NicoLiveStock = {
 
     dropToStock: function( ev ){
         ev = ev.originalEvent;
+        console.log(ev);
         if( ev.dataTransfer.types.includes( "text/uri-list" ) ){
             // <a>アンカータグをドロップしたときURLの動画IDをストックに追加する.
             let uri = ev.dataTransfer.mozGetDataAt( "text/uri-list", 0 );
@@ -648,7 +645,7 @@ var NicoLiveStock = {
             let file = ev.dataTransfer.files[0];
             if( file.name.match( /\.txt$/ ) ){
                 let fileReader = new FileReader();
-                fileReader.onload = ( ev ) =>{
+                fileReader.onload = ( ev ) => {
                     let txt = ev.target.result;
                     this.addStocks( txt );
                 };
@@ -663,38 +660,38 @@ var NicoLiveStock = {
     },
 
     initUI: function(){
-        $( document ).on( 'click', '#stock-table-body .nico-video-row button', ( ev ) =>{
+        $( document ).on( 'click', '#stock-table-body .nico-video-row button', ( ev ) => {
             this.onButtonClicked( ev );
         } );
 
-        $( '#btn-shuffle-stock' ).on( 'click', ( ev ) =>{
+        $( '#btn-shuffle-stock' ).on( 'click', ( ev ) => {
             this.shuffleStocks();
         } );
 
-        $( '#menu-remove-all-stock' ).on( 'click', ( ev ) =>{
+        $( '#menu-remove-all-stock' ).on( 'click', ( ev ) => {
             this.removeAllStocks();
         } );
 
-        $( '#menu-remove-played' ).on( 'click', ( ev ) =>{
+        $( '#menu-remove-played' ).on( 'click', ( ev ) => {
             this.removePlayedStock();
         } );
 
         //--- 並べ替えメニュー
-        $( '#stock-sort-ascending-order a' ).on( 'click', ( ev ) =>{
+        $( '#stock-sort-ascending-order a' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "href" );
             this.sortStock( target, 1 );
         } );
-        $( '#stock-sort-descending-order a' ).on( 'click', ( ev ) =>{
+        $( '#stock-sort-descending-order a' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "href" );
             this.sortStock( target, -1 );
         } );
 
-        $( '#btn-add-stock' ).on( 'click', ( ev ) =>{
+        $( '#btn-add-stock' ).on( 'click', ( ev ) => {
             let str = $( '#input-stock-video' ).val();
             this.addStocks( str );
         } );
 
-        $( '#input-stock-video' ).on( 'keydown', ( ev ) =>{
+        $( '#input-stock-video' ).on( 'keydown', ( ev ) => {
             if( ev.keyCode === 13 ){
                 let str = $( '#input-stock-video' ).val();
                 this.addStocks( str );
@@ -702,13 +699,13 @@ var NicoLiveStock = {
         } );
 
         // ストックへのデータドロップによる追加処理
-        $( '#stock-view' ).on( 'dragenter', ( ev ) =>{
+        $( '#stock-view' ).on( 'dragenter', ( ev ) => {
             ev.preventDefault();
         } );
-        $( '#stock-view' ).on( 'dragover', ( ev ) =>{
+        $( '#stock-view' ).on( 'dragover', ( ev ) => {
             ev.preventDefault();
         } );
-        $( '#stock-view' ).on( 'drop', ( ev ) =>{
+        $( '#stock-view' ).on( 'drop', ( ev ) => {
             // console.log( ev );
             ev.preventDefault();
 
@@ -717,13 +714,13 @@ var NicoLiveStock = {
 
         let no = localStorage.getItem( 'stock-setno' ) || 0;
         $( '#sel-stock-set' ).val( no );
-        $( '#sel-stock-set' ).on( 'change', ( ev ) =>{
+        $( '#sel-stock-set' ).on( 'change', ( ev ) => {
             this.changeSet();
             localStorage.setItem( 'stock-setno', $( '#sel-stock-set' ).val() * 1 );
         } );
 
         //--- マイリスト読み込み
-        $( '#menu-stock-mylist' ).on( 'click', ( ev ) =>{
+        $( '#menu-stock-mylist' ).on( 'click', ( ev ) => {
             let target = $( ev.target ).attr( "nico_grp_id" );
             if( target != undefined ){
                 this.addStockFromMylist( target );
@@ -754,7 +751,7 @@ var NicoLiveStock = {
                     }
                 };
                 try{
-                    menuobj.items.add_mylist.items['0_default'] = {name: 'とりあえずマイリスト'};
+                    menuobj.items.add_mylist.items['0_default'] = {name: 'あとで見る'};
                     for( let i = 0, item; item = NicoLiveMylist.mylists.mylistgroup[i]; i++ ){
                         let k = `${i + 1}_${item.id}`;
                         let v = item.name;

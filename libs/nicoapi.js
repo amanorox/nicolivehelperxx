@@ -29,7 +29,13 @@ var NicoApi = {
     base_uri_en: "http://video.niconico.com/",
     base_uri: "",
 
-    callApi: function( url, postfunc, postdata ){
+    nicoapi_header: {
+        "X-Frontend-Id": 6,
+        "X-Frontend-Version": 0,
+        "X-Niconico-Language": "ja-jp"
+    },
+
+    callApi: function( url, postfunc, postdata, extra_header ){
         let req;
         if( postdata ){
             req = CreateXHR( "POST", url );
@@ -40,6 +46,12 @@ var NicoApi = {
             postfunc( null );
             return;
         }
+        if( extra_header ){
+            for( let key in extra_header ){
+                req.setRequestHeader( key, extra_header[key] );
+            }
+        }
+
         req.onreadystatechange = function(){
             if( req.readyState != 4 ) return;
             if( req.status != 200 ){
@@ -82,17 +94,6 @@ var NicoApi = {
         this.callApi( url, f );
     },
 
-    broadcast: function( request_id, postdata, postfunc ){
-        let url = this.live_base_uri + "broadcast/" + request_id;
-        this.callApi( url, postfunc, postdata );
-    },
-
-    presscast: function( postdata, postfunc ){
-        // BSPはなぜか watch.live.nicovideo.jp じゃなくて live.nicovideo.jp
-        let url = "http://live.nicovideo.jp/api/presscast";
-        this.callApi( url, postfunc, postdata );
-    },
-
     getpostkey: function( thread, block_no, uselc, lang_flag, locale_flag, seat_flag, postfunc ){
         let url = this.live_base_uri + "getpostkey?thread=" + thread + "&block_no=" + block_no + "&uselc=" + uselc + "&lang_flag=" + lang_flag + "&locale_flag=" + locale_flag + "&seat_flag=" + seat_flag;
         this.callApi( url, postfunc );
@@ -107,53 +108,29 @@ var NicoApi = {
         let url = this.live_base_uri + "heartbeat";
         this.callApi( url, postfunc, postdata );
     },
-
-    configurestream: function( request_id, param, postfunc ){
-        let url = "http://watch.live.nicovideo.jp/api/configurestream/" + request_id + "?" + param;
-        this.callApi( url, postfunc );
-    },
-
-    getplayerstatus: function( request_id, postfunc ){
-        let url = this.live_base_uri + "getplayerstatus?v=" + request_id;
-        this.callApi( url, postfunc );
-    },
-
-    getpublishstatus: function( request_id, postfunc ){
-        let url = this.live_base_uri + "getpublishstatus?v=" + request_id + "&version=2";
-        this.callApi( url, postfunc );
-    },
-
     getremainpoint: function( postfunc ){
         let url = this.live_base_uri + "getremainpoint";
         this.callApi( url, postfunc );
     },
-
-    getsalelist: function( request_id, postfunc ){
-        let url = this.live_base_uri + "getsalelist?v=" + request_id;
-        this.callApi( url, postfunc );
-    },
-
     usepoint: function( postdata, postfunc ){
         let url = this.live_base_uri + "usepoint";
         this.callApi( url, postfunc, postdata );
     },
 
-    getwaybackkey: function( thread, postfunc ){
-        let url = this.live_base_uri + "getwaybackkey?thread=" + thread;
-        this.callApi( url, postfunc );
-    },
-
     mylistRSS: function( mylist_id, postfunc ){
-        let url = "http://www.nicovideo.jp/mylist/" + mylist_id + "?rss=2.0";
+        let url = `https://www.nicovideo.jp/mylist/${mylist_id}?rss=2.0&lang=ja-jp&special_chars_decode=1
+`;
         this.callApi( url, postfunc );
     },
 
-    getMylist: function( mylist_id, token, postfunc ){
-        let url = this.base_uri + "api/mylist/list";
-        let reqstr = [];
-        reqstr[0] = "group_id=" + mylist_id;
-        reqstr[1] = "token=" + encodeURIComponent( token );
-        this.callApi( url, postfunc, reqstr );
+    /**
+     * 自身のマイリストの内容を取得する
+     * @param mylist_id
+     * @param postfunc
+     */
+    getMylist: function( mylist_id, postfunc ){
+        let url = `https://nvapi.nicovideo.jp/v1/users/me/mylists/${mylist_id}?pageSize=500&page=1`
+        this.callApi( url, postfunc, null, this.nicoapi_header );
     },
 
     addDeflist: function( item_id, token, additional_msg, postfunc ){
@@ -181,27 +158,30 @@ var NicoApi = {
     },
 
     /**
-     * とりあえずマイリストに登録してある動画一覧を得る.
+     * あとで見る（とりあえずマイリスト）に登録してある動画一覧を得る.
      */
     getDeflist: function( postfunc ){
-        let url = this.base_uri + 'api/deflist/list';
-        this.callApi( url, postfunc );
+        let url = "https://nvapi.nicovideo.jp/v1/users/me/watch-later?sortKey=addedAt&sortOrder=desc&pageSize=500&page=1";
+        this.callApi( url, postfunc, null, this.nicoapi_header );
     },
     /**
      * マイリストの一覧を得る.
      */
     getmylistgroup: function( postfunc ){
-        let url = this.base_uri + "api/mylistgroup/list";
-        this.callApi( url, postfunc );
+        /*
+        X-Frontend-Id: 6
+        X-Frontend-Version: 0
+        X-Niconico-Language: ja-jp
+         */
+        let url = "https://nvapi.nicovideo.jp/v1/users/me/mylists?sampleItemCount=3";
+        this.callApi( url, postfunc, null, this.nicoapi_header );
     },
     /**
      * マイリストに登録してある動画一覧を得る.
      */
     getmylist: function( item_id, postfunc ){
-        let url = this.base_uri + "api/mylist/list";
-        let data = [];
-        data[0] = "group_id=" + item_id;
-        this.callApi( url, postfunc, data );
+        let url = `https://nvapi.nicovideo.jp/v1/users/me/mylists/${item_id}?pageSize=500&page=1`;
+        this.callApi( url, postfunc, null, this.nicoapi_header );
     },
 
     /**
