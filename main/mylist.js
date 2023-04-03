@@ -204,7 +204,7 @@ var NicoLiveMylist = {
     processMylistGroup: function(){
         // ストックのマイリストメニューに項目を追加
         let menu = $( '#menu-stock-mylist' );
-        for( let i = 0, grp; grp = NicoLiveMylist.mylists.mylistgroup[i]; i++ ){
+        for( let i = 0, grp; grp = NicoLiveMylist.mylists.data.mylists[i]; i++ ){
             let a = document.createElement( 'a' );
             a.setAttribute( 'class', 'dropdown-item' );
             a.setAttribute( 'href', '#' );
@@ -214,6 +214,9 @@ var NicoLiveMylist = {
         }
     },
 
+    /**
+     * マイリストグループを取得してドロップダウンメニューに追加する
+     */
     loadMylist: function(){
         let f = function( xml, req ){
             if( req.readyState == 4 && req.status == 200 ){
