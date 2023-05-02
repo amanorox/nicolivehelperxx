@@ -872,10 +872,10 @@ let MyListManager = {
         let str = "";
 
         // マイリストのアイテムIDをスペースで区切ったものをテキストとしてD&Dする
-        let videos = this.mylistdata[key].mylistitem;
+        let videos = this.mylistdata[key].data.mylist.items;
         for( let i = 0; i < items.length; i++ ){
             let ind = items[i].rowIndex;
-            str += videos[ind].item_data.video_id + " ";
+            str += videos[ind].video.id + " ";
         }
         window.opener.NicoLiveStock.addStocks( str );
     },
