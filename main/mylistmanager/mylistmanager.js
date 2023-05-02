@@ -152,84 +152,113 @@ let MyListManager = {
         let elem = clone2.firstElementChild;
         let image = elem.querySelector( '.video-thumbnail' );
 
-        let item = mylist_data.item_data;
-        let posteddate = GetDateString( item.first_retrieve * 1000, true );
+        let item = mylist_data;
+        let posteddate = item.video.registeredAt;//GetDateString( item.first_retrieve * 1000, true );
 
-        if( item.deleted != 0 ){
+        if( item.video.title == '削除された動画' ){
             $( elem ).addClass( "video-deleted" );
         }
-        image.setAttribute( 'src', item.thumbnail_url );
+        image.setAttribute( 'src', item.video.thumbnail['url'] );
         image.setAttribute( 'style', 'width:65px;height:50px;margin-right:8px;' );
         let details = elem.querySelector( '.video-details' );
 
-        let min = parseInt( item.length_seconds / 60 );
-        let sec = parseInt( item.length_seconds % 60 );
+        let min = parseInt( item.video.duration / 60 );
+        let sec = parseInt( item.video.duration % 60 );
 
-        $( elem.querySelector( '.video-title' ) ).text( `${item.video_id} ${item.title}` );
-        $( elem.querySelector( '.open-page' ) ).attr( 'href', `http://www.nicovideo.jp/watch/${item.video_id}` );
+        $( elem.querySelector( '.video-title' ) ).text( `${item.video.id} ${item.video.title}` );
+        $( elem.querySelector( '.open-page' ) ).attr( 'href', `http://www.nicovideo.jp/watch/${item.id}` );
 
-        details.appendChild( document.createTextNode( "投稿:" + posteddate + " (登録:" + GetDateString( mylist_data.create_time * 1000, true ) + ") 時間:" + (min + ":" + (sec < 10 ? ("0" + sec) : sec)) ) );
+        details.appendChild( document.createTextNode( "投稿:" + posteddate + " (登録:" + item.addedAt + ") 時間:" + (min + ":" + (sec < 10 ? ("0" + sec) : sec)) ) );
         details.appendChild( document.createElement( 'br' ) );
-        details.appendChild( document.createTextNode( "再生:" + FormatCommas( item.view_counter )
-            + " コメント:" + FormatCommas( item.num_res )
-            + " マイリスト:" + FormatCommas( item.mylist_counter ) ) );
+        details.appendChild( document.createTextNode( "再生:" + FormatCommas( item.video.count.view )
+            + " コメント:" + FormatCommas( item.video.count.comment )
+            + " マイリスト:" + FormatCommas( item.video.count.mylist ) ) );
 
         return elem;
     },
 
     parseMyList: function( id, name, json ){
-        /*
-         MyListManager.mylistdata["_10244"].mylistitem[0]
-         item_type: 0
-         item_id: 1173125982
-         description:
-         item_data: [object Object]
-         watch: 0
-         create_time: 1244296222
-         update_time: 1285934237
-
-         MyListManager.mylistdata["_10244"].mylistitem[0].item_data
-         video_id: sm222
-         title: イースⅠ 新オープニング OP
-         thumbnail_url: http://tn-skr3.smilevideo.jp/smile?i=222
-         first_retrieve: 1173125982
-         update_time: 1342631959
-         view_counter: 54357
-         mylist_counter: 517
-         num_res: 1001
-         group_type: default
-         length_seconds: 209
-         deleted: 0
-         last_res_body: 222とか凄いな ダルクは紳士！ ダルクかっけええええ れあああああああああ
-         watch_id: sm222
-         */
-
         let key = "_" + id;
         this.mylistdata[key] = JSON.parse( json );
+        let mylistobj = this.mylistdata[key];
+        console.log( mylistobj );
 
-        if( this.mylistdata[key].status == 'fail' ){
+        /*
+        {
+	"0": {
+		"itemId": 1291969444,
+		"watchId": "sm12988567",
+		"description": "",
+		"decoratedDescriptionHtml": "",
+		"addedAt": "2012-09-09T23:06:35+09:00",
+		"status": "public",
+		"video": {
+			"type": "essential",
+			"id": "sm12988567",
+			"title": "【初音ミク】きみのうみ【オリジナル】",
+			"registeredAt": "2010-12-10T17:24:02+09:00",
+			"count": {
+				"view": 7531,
+				"comment": 111,
+				"mylist": 341,
+				"like": 1
+			},
+			"thumbnail": {
+				"url": "https://nicovideo.cdn.nimg.jp/thumbnails/12988567/12988567",
+				"middleUrl": null,
+				"largeUrl": null,
+				"listingUrl": "https://img.cdn.nimg.jp/s/nicovideo/thumbnails/12988567/12988567.original/r320x180l?key=d1a23010158088df7e066a7217489d8407fc6e70e39061d6aee60b9a42772d90",
+				"nHdUrl": "https://img.cdn.nimg.jp/s/nicovideo/thumbnails/12988567/12988567.original/r640x360l?key=ff299b860237e80155c320a49ef934e6c2da11a8095c9ea0bcbaf84e2e50f4a5"
+			},
+			"duration": 273,
+			"shortDescription": "はじめまして、こんにちは、かんぱねってと申します。海っぽい曲に出来上がってたら嬉しいですがどうでしょ",
+			"latestCommentSummary": "GJ 。゜(゜´Д`゜)゜。 綺麗 wktk GJ!! なんという幻想系 癒されるなぁ・・・・ やばい、眠くな...",
+			"isChannelVideo": false,
+			"isPaymentRequired": false,
+			"playbackPosition": null,
+			"owner": {
+				"ownerType": "user",
+				"type": "user",
+				"visibility": "visible",
+				"id": "18897569",
+				"name": "かんぱねって",
+				"iconUrl": "https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/1889/18897569.jpg?1324987243"
+			},
+			"requireSensitiveMasking": false,
+			"videoLive": null,
+			"isMuted": false,
+			"9d091f87": false,
+			"acf68865": false
+                        }
+                }
+        }
+         */
+        if( this.mylistdata[key].meta.status != '200' ){
             $( '#message' ).text( this.mylistdata[key].error.description );
             return;
         }
 
-        $( '#mylist-num' ).text( `${this.mylistdata[key].mylistitem.length} 件` );
-
-        // どのソート順を使用するかチェック
-        let sort_order = 1;
-        for( let i = 0, item; item = this.mylists.mylistgroup[i]; i++ ){
-            if( item.id == id ){
-                sort_order = item.default_sort;
-                break;
-            }
+        if( this.mylistdata[key].data.watchLater ){
+            this.mylistdata[key].data.mylist = this.mylistdata[key].data.watchLater;
         }
-        $( '#select-sort-order' ).val( sort_order );
+
+        $( '#mylist-num' ).text( `${this.mylistdata[key].data.mylist.items.length} 件` );
+
+        // TODO どのソート順を使用するかチェック
+        // let sort_order = 1;
+        // for( let i = 0, item; item = this.mylists.mylistgroup[i]; i++ ){
+        //     if( item.id == id ){
+        //         sort_order = item.default_sort;
+        //         break;
+        //     }
+        // }
+        // $( '#select-sort-order' ).val( sort_order );
+        // this.sort( this.mylistdata[key].data.mylist.items, parseInt( sort_order ) );
 
         let folder_listbox = $( '#folder-item-listbox' );
         folder_listbox.empty();
 
-        this.sort( this.mylistdata[key].mylistitem, parseInt( sort_order ) );
-
-        for( let i = 0, item; item = this.mylistdata[key].mylistitem[i]; i++ ){
+        for( let i = 0, item; item = this.mylistdata[key].data.mylist.items[i]; i++ ){
             let listitem = this.createListItemElement( item );
             folder_listbox.append( listitem );
         }
@@ -293,15 +322,13 @@ let MyListManager = {
                         return;
                     }
 
-                    let mylists = MyListManager.mylists.mylistgroup;
-                    for( let i = 0, item; item = mylists[i]; i++ ){
-                        let folder = $( '#mylist' );
+                    let folder = $( '#mylist' );
+                    for( let i = 0, grp; grp = MyListManager.mylists.data.mylists[i]; i++ ){
                         let elem = document.createElement( 'option' );
-                        $( elem ).text( item.name );
-                        $( elem ).attr( 'value', item.id );
+                        $( elem ).text( grp.name );
+                        $( elem ).attr( 'value', grp.id );
                         folder.append( elem );
                     }
-                    //MyListManager.getAllMylists(mylists);
                 }
             }
         };
@@ -380,21 +407,21 @@ let MyListManager = {
         let id = $( '#mylist' ).val();
         let key = "_" + id;
 
-        let videos = this.mylistdata[key].mylistitem;
+        let videos = this.mylistdata[key].data.mylist.items;
         for( let i = 0; i < items.length; i++ ){
             let ind = items[i].rowIndex;
             switch( type ){
             case 0:
                 // 動画ID
-                str += videos[ind].item_data.video_id + "\n";
+                str += videos[ind].video.id + "\n";
                 break;
             case 1:
                 // タイトル
-                str += videos[ind].item_data.title + "\n";
+                str += videos[ind].video.title + "\n";
                 break;
             case 2:
                 // 動画ID+タイトル
-                str += videos[ind].item_data.video_id + "\t" + videos[ind].item_data.title + "\n";
+                str += videos[ind].video.id + "\t" + videos[ind].video.title + "\n";
                 break;
             }
         }
@@ -781,7 +808,7 @@ let MyListManager = {
             let file = e.dataTransfer.files[0];
             if( file.name.match( /\.txt$/ ) ){
                 let fileReader = new FileReader();
-                fileReader.onload = ( ev ) =>{
+                fileReader.onload = ( ev ) => {
                     let txt = ev.target.result;
                     let video_ids = txt.match( /(sm|nm|so)\d+|\d{10}/g );
                     this.registerMylistQueue = [];
@@ -927,9 +954,9 @@ let MyListManager = {
 
     init: function(){
         this.getMylistGroup();
-        this.getMyListPageToken();
+        // this.getMyListPageToken();
 
-        $( document ).on( 'click', '#folder-item-listbox tr', ( ev ) =>{
+        $( document ).on( 'click', '#folder-item-listbox tr', ( ev ) => {
             console.log( ev );
             let tr = FindParentElement( ev.target, 'tr' );
             console.log( tr );
@@ -960,53 +987,53 @@ let MyListManager = {
 
         let mylist = $( '#mylist' );
         // 選択したマイリストを読み込む
-        mylist.on( 'change', ( ev ) =>{
+        mylist.on( 'change', ( ev ) => {
             let mylist_id = ev.target.value;
             let name = $( '#mylist option:selected' ).text();
             this.loadMyList( mylist_id, name );
         } );
 
-        $( '#select-sort-order' ).on( 'change', ( ev ) =>{
+        $( '#select-sort-order' ).on( 'change', ( ev ) => {
             this.doSort( ev.target.value );
         } );
 
-        $( '#folder-item-listbox' ).on( 'dragstart', ( ev ) =>{
+        $( '#folder-item-listbox' ).on( 'dragstart', ( ev ) => {
             this.startItemDragging( ev );
         } );
 
-        mylist.on( 'dragenter', ( ev ) =>{
+        mylist.on( 'dragenter', ( ev ) => {
             $( ev.target ).addClass( 'dragover' );
         } );
-        mylist.on( 'dragover', ( ev ) =>{
+        mylist.on( 'dragover', ( ev ) => {
             ev.preventDefault();
         } );
-        mylist.on( 'dragleave', ( ev ) =>{
+        mylist.on( 'dragleave', ( ev ) => {
             $( ev.target ).removeClass( 'dragover' );
         } );
-        mylist.on( 'drop', ( ev ) =>{
+        mylist.on( 'drop', ( ev ) => {
             ev.preventDefault();
             $( ev.target ).removeClass( 'dragover' );
             this.dropItemToMyList( ev );
         } );
 
         let videolist = $( '#videolist' );
-        $( '#folder-item-listbox' ).on( 'dragover', ( ev ) =>{
+        $( '#folder-item-listbox' ).on( 'dragover', ( ev ) => {
             videolist.addClass( 'dragover' );
             ev.preventDefault();
         } );
 
-        videolist.on( 'dragover', ( ev ) =>{
+        videolist.on( 'dragover', ( ev ) => {
             ev.originalEvent.dataTransfer.effectAllowed = this.registerMylistQueue.length ? "none" : "all";
             ev.preventDefault();
         } );
-        videolist.on( 'dragenter', ( ev ) =>{
+        videolist.on( 'dragenter', ( ev ) => {
             videolist.addClass( 'dragover' );
             ev.originalEvent.dataTransfer.effectAllowed = this.registerMylistQueue.length ? "none" : "all";
         } );
-        videolist.on( 'dragleave', ( ev ) =>{
+        videolist.on( 'dragleave', ( ev ) => {
             videolist.removeClass( 'dragover' );
         } );
-        videolist.on( 'drop', ( ev ) =>{
+        videolist.on( 'drop', ( ev ) => {
             ev.preventDefault();
             videolist.removeClass( 'dragover' );
             this.dropToRightPane( ev );
@@ -1056,6 +1083,6 @@ window.addEventListener( "unload", function( e ){
 
 
 let NicoLiveHelper = {};
-browser.management.getSelf().then( ( info ) =>{
+browser.management.getSelf().then( ( info ) => {
     NicoLiveHelper.version = info.version;
 } );
