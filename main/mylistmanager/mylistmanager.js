@@ -166,7 +166,7 @@ let MyListManager = {
         let sec = parseInt( item.video.duration % 60 );
 
         $( elem.querySelector( '.video-title' ) ).text( `${item.video.id} ${item.video.title}` );
-        $( elem.querySelector( '.open-page' ) ).attr( 'href', `http://www.nicovideo.jp/watch/${item.id}` );
+        $( elem.querySelector( '.open-page' ) ).attr( 'href', `http://www.nicovideo.jp/watch/${item.video.id}` );
 
         details.appendChild( document.createTextNode( "投稿:" + posteddate + " (登録:" + item.addedAt + ") 時間:" + (min + ":" + (sec < 10 ? ("0" + sec) : sec)) ) );
         details.appendChild( document.createElement( 'br' ) );
