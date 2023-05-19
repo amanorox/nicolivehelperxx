@@ -852,11 +852,11 @@ let MyListManager = {
     saveToFile: function(){
         let id = $( '#mylist' ).val();
         let key = "_" + id;
-        let videos = this.mylistdata[key].mylistitem;
+        let videos = this.mylistdata[key].data.mylist.items;
 
         let str = "";
         for( let i = 0; i < videos.length; i++ ){
-            str += videos[i].item_data.video_id + "\t" + videos[i].item_data.title + "\r\n";
+            str += videos[i].video.id + "\t" + videos[i].video.title + "\r\n";
         }
 
         SaveText( 'mylist.txt', str );
