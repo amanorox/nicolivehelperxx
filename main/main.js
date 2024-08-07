@@ -388,8 +388,11 @@ var NicoLiveHelper = {
         // TODO: GET https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots/launchable
         // TODO: OPTION https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots
         // TODO: POST https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots
+        // https://services-eapi.spi.nicovideo.jp/v1/services/quotation/contents/lv345495957/bots/launchable?serviceProductId=sm4740727
+        // https://services-eapi.spi.nicovideo.jp/v1/services/quotation/contents/lv345495957/bots/current
 
-        let current = await HttpGet( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current` );
+        let svr_name = "services-eapi.spi.nicovideo.jp";
+        let current = await HttpGet( `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots/current` );
         //let response = await HttpGet( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/launchable` );
         //response = await HttpOption( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots` );
 
@@ -407,8 +410,8 @@ var NicoLiveHelper = {
             }
 
             let video_id = vinfo.video_id;
-            let url = `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots`;
-            let changeurl = `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current/events/changeContents`;
+            let url = `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots`;
+            let changeurl = `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots/current/events/changeContents`;
             let newplay = current.status === 404;
 
             let xhr = CreateXHR( 'POST', newplay ? url : changeurl );
@@ -1154,7 +1157,7 @@ var NicoLiveHelper = {
      * @param data
      */
     onCommentReceived: function( data ){
-        // console.log( data );    // TODO コメント受信したときのログ表示
+        console.log( data );    // TODO コメント受信したときのログ表示
         if( data.thread ){
             // data.thread.ticket;
             // data.thread.last_res;
@@ -1212,22 +1215,143 @@ var NicoLiveHelper = {
         $( '#remaining-time-main' ).text( vinfo.title );
     },
 
+    // forward方向メッセージ受信して表示
+    pull_messages: async function( uri ){
+        const mType = protobuf.roots.default.dwango.nicolive.chat.service.edge.ChunkedMessage;
+        for await( const msg of this.messageRetriever( uri, mType ) ){
+            //表示想定時刻までsleepする
+            if( msg.meta ){
+                // do{
+                //     await sleep_until( msg.meta.at );
+                // }while( await g_pause );
+            }
+            console.log( msg );
+
+            let op_message = msg?.state?.marquee?.display?.operatorComment?.content;
+            let user_message = msg?.message?.chat;
+            // {
+            //     "content": "新馬戦の予想なんてどう組み立ててるんかな",
+            //     "vpos": 1217767,
+            //     "accountStatus": 1,
+            //     "hashedUserId": "a:9W9yGj68Q_0swdPA",
+            //     "modifier": {},
+            //     "no": 333
+            // }
+
+            let chat = {
+                premium: op_message ? 2 : 0,
+                date: msg?.meta?.at?.seconds,
+                text: op_message || user_message?.content || "",
+                text_notag: op_message || user_message?.content || "",
+                name: "",
+                user_id: user_message?.hashedUserId || "0",
+                no: user_message?.no || 0
+            };
+            if( op_message || user_message ){
+                this.processComment( chat );
+            }
+            console.log( `Op Comment: ${op_message}` );
+
+            if( msg.state != null ){
+                // update_state( msg );
+            }
+        }
+    },
+
+    connectCommentServer: async function( room ){
+        const fwd = protobuf.roots.default.dwango.nicolive.chat.service.edge.ChunkedEntry;
+        let next = GetCurrentTime() - 5 * 60;
+        let init_phase = true;
+        while( next ){
+            const current_next = next;
+            next = null;
+            for await( const entry of this.messageRetriever( `${room.viewUri}?at=${current_next}`, fwd ) ){
+                // console.log( "retrieve entry message:" );
+                console.log( entry );
+
+                if( entry.backward != null && init_phase ){
+                    //previous以前の中で最新stateメッセージを取得
+                    // await pull_messages(entry.backward.snapshot.uri);
+                    console.log( "backward" );
+                }else if( entry.previous != null && init_phase ){
+                    //from以前のメッセージを取得(中身はatに過去時刻を指定したときのsegmentと同じモノ)
+                    // await pull_messages(entry.previous.uri);
+                    console.log( "previous" );
+                }else if( entry.segment != null ){//最初のentry.segmentはfrom <= at < untilの区間を持っている
+                    console.log( "segment" );
+                    init_phase = false;
+                    //10秒先読みする(ライブ時は取得可能になったタイミング(現ndgr実装だと5秒前)に配信されるので10秒先読みリクエストにはならない)
+                    // await sleep_until(entry.segment.from, 10_000);
+                    //segmentのpull_messagesをawaitすることは実運用上できないでしょう
+                    //ここでawaitしてしまうと次のsegmentを先読みができないためです
+                    //また先読みしなかったとしてもsegmentのレスポンスが終わるのまでにuntilを必ず超えるため、次にsegment取得まで隙間が空きます
+                    //そのためここでawaitするとライブ時に詰まりなく受信することは不可能となっています
+                    this.pull_messages( entry.segment.uri );
+                }else if( entry.next != null ){
+                    //このメッセージが配送されたら次のplaylistが取得可能になっています
+                    next = entry.next.at;
+                }
+            }
+        }
+    },
+
+    messageRetriever: async function* ( uri, decoder ){
+        // console.log( `message server uri: ${room.viewUri}` );
+        const res = await fetch( uri );
+        if( res.ok ){
+            const tmp = res.body.getReader();
+            //productionではstreamが通信障害等で切れたときの対応も考える必要があります。その時はtmp.read()がエラーを出すはず
+            const stream = {
+                [Symbol.asyncIterator](){
+                    return {next: () => tmp.read()}
+                }
+            }
+            let unread = [];
+            for await( const chunk of stream ){
+                const buffer = new protobuf.Reader( [...unread, ...chunk] );
+                unread = [];
+                while( buffer.pos < buffer.len ){
+                    const current_pos = buffer.pos;
+                    try{
+                        yield decoder.decodeDelimited( buffer )
+                    }catch( e ){
+                        if( e instanceof RangeError ){
+                            console.log( e );
+                            //protobufが途中でちぎれていた場合RangeErrorになるので未読分をunreadにつめる
+                            const uri = room.viewUri;
+                            console.log( {err: "Range", current_pos, unread: (buffer.len - current_pos), uri} )
+                            unread = buffer.buf.slice( current_pos, buffer.len );
+                            break
+                        }else{
+                            console.log( {"decode error": room.viewUri, "reason": e} );
+                            throw e;
+                        }
+                    }
+                }
+            }
+            // show({"fetch completed": uri});
+        }else{
+            console.log( {"status": res.status, "fetch error": room.viewUri} );
+            throw new Error( "fetch error", room.viewUri );
+        }
+    },
+
     /**
      * WebSocketでコメントサーバーに接続する.
      * @param room
      */
-    connectCommentServer: function( room ){
+    connectCommentServer_: function( room ){
         console.log( 'connect comment server(websocket)...' );
-        console.log( `websocket uri: ${room.messageServer.uri}` );
+        console.log( `websocket uri: ${room.viewUri}` );
         console.log( `thread id: ${room.threadId}` );
         console.log( `room name: ${room.name}` );
-        console.log( `server type: ${room.messageServer.type}` );
+        // console.log( `server type: ${room.messageServer.type}` );
 
         this.threadId = room.threadId;
         this.yourPostKey = room.yourPostKey;
 
         // sub-protocol "msg.nicovideo.jp#json"
-        this._comment_svr = new Comm( room.messageServer.uri, "msg.nicovideo.jp#json" );
+        this._comment_svr = new Comm( room.viewUri, "msg.nicovideo.jp#json" );
         this._comment_svr.connect();
         this._comment_svr.onConnect( ( ev ) => {
             console.log( 'comment server connected.' );
@@ -1282,13 +1406,14 @@ var NicoLiveHelper = {
     },
 
     onWatchCommandReceived: function( data ){
-        // console.log( data ); // TODO 受信時のログ表示
+        console.log( data ); // TODO 受信時のログ表示
         let body = data.data;
         switch( data.type ){
-        case 'room':
+        case 'messageServer':
             // data.data.messageServer.uri;
             // data.data.messageServer.type;
             // data.data.threadId;
+            this.connecttime = GetCurrentTime();
             this.connectCommentServer( body );
             break;
 
