@@ -1243,8 +1243,8 @@ var NicoLiveHelper = {
                 date: msg?.meta?.at?.seconds,
                 text: op_message || user_message?.content || "",
                 text_notag: op_message || user_message?.content || "",
-                name: "",
-                user_id: user_message?.hashedUserId || "0",
+                name: user_message?.name || "",
+                user_id: user_message?.hashedUserId || msg?.meta?.id || "0",
                 no: user_message?.no || 0
             };
             if( op_message || user_message ){
