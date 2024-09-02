@@ -1245,7 +1245,8 @@ var NicoLiveHelper = {
                 text_notag: op_message || user_message?.content || "",
                 name: user_message?.name || "",
                 user_id: user_message?.hashedUserId || msg?.meta?.id || "0",
-                no: user_message?.no || 0
+                no: user_message?.no || 0,
+                comment_no: user_message?.no || 0,
             };
             if( op_message || user_message ){
                 this.processComment( chat );
