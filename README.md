@@ -4,4 +4,3 @@
 
 # Link
 - https://addons.mozilla.org/ja/firefox/addon/new-nicolive-helper/
-- 
