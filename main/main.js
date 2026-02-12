@@ -392,9 +392,7 @@ var NicoLiveHelper = {
         // https://services-eapi.spi.nicovideo.jp/v1/services/quotation/contents/lv345495957/bots/current
 
         let svr_name = "services-eapi.spi.nicovideo.jp";
-        let current = await HttpGet( `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots/current` );
-        //let response = await HttpGet( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/launchable` );
-        //response = await HttpOption( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots` );
+        let current = await HttpGet( `https://${svr_name}/v1/tools/live/contents/${this.getLiveId()}/quotation` );
 
         // 次動画の再生したあとに音量変更が走ると困るのでタイマーを取り消す
         clearTimeout( this._change_volume_timer );
@@ -557,11 +555,11 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     getCurrentVideo: async function(){
-        // https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv326328556/bots/current
-        let current = await HttpGet( `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current` );
+        let current = await HttpGet( `https://services-eapi.spi.nicovideo.jp/v1/tools/live/contents/${this.getLiveId()}/quotation` );
         if( current.status !== 404 ){
             let contents = JSON.parse( current.responseText );
-            return contents.data.currentQuotedContentId;
+            console.log(contents);
+            return contents.currentContent?.id;
         }
         return '';
     },
@@ -1205,8 +1203,10 @@ var NicoLiveHelper = {
      */
     initProgressBar: async function(){
         let video_id = await this.getCurrentVideo();
-        if( !video_id ) return;
-        console.log( video_id );
+        console.log( `Current video: ${video_id}` );
+        if( !video_id ){
+            return;
+        }
 
         let vinfo = await this.getVideoInfo( video_id );
         this.currentVideo = vinfo;
@@ -1416,6 +1416,12 @@ var NicoLiveHelper = {
             // data.data.threadId;
             this.connecttime = GetCurrentTime();
             this.connectCommentServer( body );
+            (async () => {
+                await this.initProgressBar();
+                if( !this.currentVideo ){
+                    this.sendStartupComment();
+                }
+            })();
             break;
 
         case 'statistics':
