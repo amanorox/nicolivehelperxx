@@ -222,6 +222,8 @@ function CreateXHR( method, uri, substitution ){
     let req = new XMLHttpRequest();
     if( !req ) return null;
     req.open( method, uri );
+    req.setRequestHeader("X-From-NicoLiveHelper-Extension", "1");
+
     try{
         req.setRequestHeader( "User-Agent", `NicoLiveHelperX/${NicoLiveHelper.version}` );
     }catch( e ){

@@ -45,6 +45,8 @@ var NicoLiveHelper = {
     _autoplay_timer: null,  ///< 自動再生用タイマー
     _remain_timer_format_type: 0,   ///< 再生中動画の時間表示フォーマット種別(0:残り時間,1:経過時間,2:動作再生終了時の枠残り時間)
 
+    endpointUrl: "https://services-eapi.spi.nicovideo.jp",
+
     /**
      * 放送に接続しているかを返す.
      * @return {boolean}
@@ -298,15 +300,10 @@ var NicoLiveHelper = {
                 return;
             }
 
-            // POST https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv326310403/bots/current/events/stop
-            // Referer: https://launch.spi.nicovideo.jp/quotation/?content_id=lv326310403&content_type=live&frontend_id=12&frontend_version=172.0.0&id=sm24329938
-            // Body {}
-
-            let url = `https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/${this.getLiveId()}/bots/current/events/stop`;
-            let xhr = CreateXHR( 'POST', url );
+            let url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
+            let xhr = CreateXHR( 'DELETE', url );
             let video_id = this.currentVideo.video_id;
             // Referer付かないけど大丈夫みたい
-            xhr.setRequestHeader( 'Referer', `https://launch.spi.nicovideo.jp/quotation/?content_id=${this.getLiveId()}&content_type=live&frontend_id=${this.liveProp.site.frontendId}&frontend_version=172.0.0&id=${video_id}` );
             xhr.onreadystatechange = () => {
                 if( xhr.readyState != 4 ) return;
                 if( xhr.status != 200 ){
@@ -383,16 +380,8 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     playVideo: async function( vinfo, is_change_volume ){
-        // TODO: 現状ママで動作するが一部のAPIがなくなっているので要修正
-        // TODO: GET https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots/current
-        // TODO: GET https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots/launchable
-        // TODO: OPTION https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots
-        // TODO: POST https://lapi.spi.nicovideo.jp/v1/services/quotation/contents/lv321615267/bots
-        // https://services-eapi.spi.nicovideo.jp/v1/services/quotation/contents/lv345495957/bots/launchable?serviceProductId=sm4740727
-        // https://services-eapi.spi.nicovideo.jp/v1/services/quotation/contents/lv345495957/bots/current
-
-        let svr_name = "services-eapi.spi.nicovideo.jp";
-        let current = await HttpGet( `https://${svr_name}/v1/tools/live/contents/${this.getLiveId()}/quotation` );
+        // 現在再生中の動画を取得
+        let current = await HttpGet( `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation` );
 
         // 次動画の再生したあとに音量変更が走ると困るのでタイマーを取り消す
         clearTimeout( this._change_volume_timer );
@@ -408,11 +397,16 @@ var NicoLiveHelper = {
             }
 
             let video_id = vinfo.video_id;
-            let url = `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots`;
-            let changeurl = `https://${svr_name}/v1/services/quotation/contents/${this.getLiveId()}/bots/current/events/changeContents`;
+            let newplay_url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
+            let changeurl = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation/contents`;
             let newplay = current.status === 404;
 
-            let xhr = CreateXHR( 'POST', newplay ? url : changeurl );
+            let xhr;
+            if( newplay ){
+                xhr = CreateXHR( 'POST', newplay_url );
+            }else{
+                xhr = CreateXHR( 'PATCH', changeurl );
+            }
             xhr.setRequestHeader( 'Content-type', 'application/json' );
             xhr.onreadystatechange = () => {
                 if( xhr.readyState != 4 ) return;
@@ -558,7 +552,7 @@ var NicoLiveHelper = {
         let current = await HttpGet( `https://services-eapi.spi.nicovideo.jp/v1/tools/live/contents/${this.getLiveId()}/quotation` );
         if( current.status !== 404 ){
             let contents = JSON.parse( current.responseText );
-            console.log(contents);
+            console.log( contents );
             return contents.currentContent?.id;
         }
         return '';
@@ -1670,7 +1664,7 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     isAvailableInNewLive: function( video_id ){
-        let url = `https://lapi.spi.nicovideo.jp/v1/tools/live/quote/services/video/contents/${video_id}`;
+        let url = `${this.endpointUrl}/v1/tools/live/quote/services/video/contents/${video_id}`;
         let p = new Promise( ( resolve, reject ) => {
             let xhr = CreateXHR( 'GET', url );
             xhr.onreadystatechange = () => {
