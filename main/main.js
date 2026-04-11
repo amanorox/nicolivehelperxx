@@ -559,6 +559,63 @@ var NicoLiveHelper = {
     },
 
     /**
+     * プログレスバーの表示を初期状態にする.
+     * @returns {Promise<void>}
+     */
+    initProgressBar: async function(){
+        let video_id = await this.getCurrentVideo();
+        console.log( `Current video: ${video_id}` );
+        if( !video_id ){
+            return;
+        }
+
+        let vinfo = await this.getVideoInfo( video_id );
+        this.currentVideo = vinfo;
+        this.currentVideo.play_begin = GetCurrentTime();
+        this.currentVideo.play_end = GetCurrentTime();
+        $( '#remaining-time-main' ).text( vinfo.title );
+    },
+
+
+    /**
+     * スタートアップコメントを送信する.
+     * @returns {Promise<void>}
+     */
+    sendStartupComment: async function(){
+        if( !this.isCaster() ) return;
+        let liveprogress = GetCurrentTime() - this.live_begintime;
+        // 3分経過したらスタートアップコメントしない
+        if( liveprogress > 180 ) return;
+
+        let db = CCDB.initDB();
+
+        // コミュニティID、スタートアップコメント設定の順で連続コメントを探す
+        let keys = [];
+        let by_community = Config['startup-comment-by-community'];
+        if( by_community ){
+            keys.push( this.getCommunityId() );
+        }
+        if( Config['startup-comment'] ){
+            keys.push( Config['startup-comment'] );
+        }
+
+        let text;
+        for( let k of keys ){
+            let file = await db.ccfile.get( k );
+            text = file && file.text;
+            if( text ) break;
+        }
+        if( !text ) return;
+
+        let text_array = text.split( /\n|\r|\r\n/ );
+        for( let line of text_array ){
+            await Wait( 5000 );
+            console.log( line );
+            this.postCasterComment( line, '', '', false );
+        }
+    },
+
+    /**
      * 文字列のマクロ展開を行う.
      * @param str 置換元も文字列
      * @param info 動画情報
@@ -964,43 +1021,6 @@ var NicoLiveHelper = {
         let text = chat.text_notag;
     },
 
-    /**
-     * スタートアップコメントを送信する.
-     * @returns {Promise<void>}
-     */
-    sendStartupComment: async function(){
-        if( !this.isCaster() ) return;
-        let liveprogress = GetCurrentTime() - this.live_begintime;
-        // 3分経過したらスタートアップコメントしない
-        if( liveprogress > 180 ) return;
-
-        let db = CCDB.initDB();
-
-        // コミュニティID、スタートアップコメント設定の順で連続コメントを探す
-        let keys = [];
-        let by_community = Config['startup-comment-by-community'];
-        if( by_community ){
-            keys.push( this.getCommunityId() );
-        }
-        if( Config['startup-comment'] ){
-            keys.push( Config['startup-comment'] );
-        }
-
-        let text;
-        for( let k of keys ){
-            let file = await db.ccfile.get( k );
-            text = file && file.text;
-            if( text ) break;
-        }
-        if( !text ) return;
-
-        let text_array = text.split( /\n|\r|\r\n/ );
-        for( let line of text_array ){
-            await Wait( 5000 );
-            console.log( line );
-            this.postCasterComment( line, '', '', false );
-        }
-    },
 
     /**
      * 視聴者コメントを処理する.
@@ -1191,23 +1211,6 @@ var NicoLiveHelper = {
         }
     },
 
-    /**
-     * プログレスバーの表示を初期状態にする.
-     * @returns {Promise<void>}
-     */
-    initProgressBar: async function(){
-        let video_id = await this.getCurrentVideo();
-        console.log( `Current video: ${video_id}` );
-        if( !video_id ){
-            return;
-        }
-
-        let vinfo = await this.getVideoInfo( video_id );
-        this.currentVideo = vinfo;
-        this.currentVideo.play_begin = GetCurrentTime();
-        this.currentVideo.play_end = GetCurrentTime();
-        $( '#remaining-time-main' ).text( vinfo.title );
-    },
 
     // forward方向メッセージ受信して表示
     pull_messages: async function( uri ){
@@ -1481,6 +1484,28 @@ var NicoLiveHelper = {
             let data = JSON.parse( ev.data );
             this.onWatchCommandReceived( data );
         } );
+    },
+
+    startLive: function(){
+        let uri = `https://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/segment?state=on_air`;
+        let xhr = CreateXHR( 'PUT', uri );
+        xhr.onreadystatechange = async () => {
+            if( xhr.readyState != 4 ) return;
+            let error = JSON.parse( xhr.responseText );
+            if( xhr.status != 200 ){
+                console.log( `${xhr.status} ${xhr.responseText}` );
+                this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+            }else{
+                if( error.meta.status == 200 ){
+                    this.showAlert( '放送を開始しました' );
+                }else{
+                    this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+                }
+            }
+        };
+
+        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
+        xhr.send();
     },
 
 
@@ -1924,27 +1949,6 @@ var NicoLiveHelper = {
         }
     },
 
-    startLive: function(){
-        let uri = `https://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/segment?state=on_air`;
-        let xhr = CreateXHR( 'PUT', uri );
-        xhr.onreadystatechange = async () => {
-            if( xhr.readyState != 4 ) return;
-            let error = JSON.parse( xhr.responseText );
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
-            }else{
-                if( error.meta.status == 200 ){
-                    this.showAlert( '放送を開始しました' );
-                }else{
-                    this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
-                }
-            }
-        };
-
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-        xhr.send();
-    },
 
     updateVideoProgress: function( now ){
         // 動画の経過時間
@@ -1993,15 +1997,6 @@ var NicoLiveHelper = {
         }
     },
 
-    test: async function(){
-        let obj = {
-            code: '12345',
-            title: 'title-name'
-        };
-        browser.storage.local.set( {
-            'jwid': obj
-        } );
-    },
 
     initUI: async function(){
         $( '#btn-play-next' ).on( 'click', ( ev ) => {
@@ -2237,6 +2232,16 @@ var NicoLiveHelper = {
                 pname_whitelist["_" + ZenToHan( pname )] = true;
             }
         }
+    },
+
+    test: async function(){
+        let obj = {
+            code: '12345',
+            title: 'title-name'
+        };
+        browser.storage.local.set( {
+            'jwid': obj
+        } );
     },
 
     /**
