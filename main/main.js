@@ -185,21 +185,10 @@ var NicoLiveHelper = {
      * @param a8
      * @param a9
      */
-    enquete: function( q, a1, a2, a3, a4, a5, a6, a7, a8, a9 ){
+    enquete: async function( q, a1, a2, a3, a4, a5, a6, a7, a8, a9 ){
         if( !q || !a1 || !a2 ) return;
         // アンケートを実装する
         let url = `http://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/enquete`;
-        let xhr = CreateXHR( 'POST', url );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                return;
-            }
-        };
-
-        xhr.setRequestHeader( 'Content-type', 'application/json;charset=utf-8' );
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
 
         let tmp = [a1, a2, a3, a4, a5, a6, a7, a8, a9];
         let tmp2 = [];
@@ -210,35 +199,49 @@ var NicoLiveHelper = {
             question: q,
             items: tmp2
         };
-        xhr.send( JSON.stringify( data ) );
+
+        try{
+            let res = await HttpFetch( 'POST', url, {
+                headers: {
+                    'Content-type': 'application/json;charset=utf-8',
+                    'X-Public-Api-Token': this.liveProp.site.relive.csrfToken
+                },
+                body: JSON.stringify( data )
+            } );
+            if( !res.ok ){
+                console.log( `${res.status} ${await res.text()}` );
+            }
+        }catch( e ){
+            console.log( e );
+        }
     },
 
-    enqueteShowResult: function(){
+    enqueteShowResult: async function(){
         let url = `http://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/enquete/show_result`;
-        let xhr = CreateXHR( 'POST', url );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                return;
+        try{
+            let res = await HttpFetch( 'POST', url, {
+                headers: {'X-Public-Api-Token': this.liveProp.site.relive.csrfToken}
+            } );
+            if( !res.ok ){
+                console.log( `${res.status} ${await res.text()}` );
             }
-        };
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-        xhr.send();
+        }catch( e ){
+            console.log( e );
+        }
     },
 
-    enqueteEnd: function(){
+    enqueteEnd: async function(){
         let url = `http://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/enquete/end`;
-        let xhr = CreateXHR( 'POST', url );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                return;
+        try{
+            let res = await HttpFetch( 'POST', url, {
+                headers: {'X-Public-Api-Token': this.liveProp.site.relive.csrfToken}
+            } );
+            if( !res.ok ){
+                console.log( `${res.status} ${await res.text()}` );
             }
-        };
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-        xhr.send();
+        }catch( e ){
+            console.log( e );
+        }
     },
 
 
@@ -293,40 +296,31 @@ var NicoLiveHelper = {
      * 動画再生を停止する.
      * @returns {Promise<any>}
      */
-    stopVideo: function(){
-        let p = new Promise( ( resolve, reject ) => {
-            if( !this.isConnected() || !this.isCaster() ){
-                reject( null );
-                return;
-            }
+    stopVideo: async function(){
+        if( !this.isConnected() || !this.isCaster() ){
+            throw null;
+        }
 
-            let url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
-            let xhr = CreateXHR( 'DELETE', url );
-            let video_id = this.currentVideo.video_id;
-            // Referer付かないけど大丈夫みたい
-            xhr.onreadystatechange = () => {
-                if( xhr.readyState != 4 ) return;
-                if( xhr.status != 200 ){
-                    // TODO エラー処理を更新する
-                    console.log( `${xhr.status} ${xhr.responseText}` );
+        let url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
+        // Referer付かないけど大丈夫みたい
+        let res = await HttpFetch( 'DELETE', url, {body: '{}'} );
+        if( !res.ok ){
+            // TODO エラー処理を更新する
+            let text = await res.text();
+            console.log( `${res.status} ${text}` );
 
-                    // 400 {"meta":{"status":400,"errorCode":"BAD_REQUEST","errorMessage":"引用再生できない動画です"}}
-                    let err = JSON.parse( xhr.responseText );
-                    this.showAlert( `${err.meta.errorMessage}` );
-                    //this.currentVideo = null;
-                    reject( err );
-                    return;
-                }
-                this.currentVideo = null;
-                this.setProgressMain( 0 );
-                this.setAutoplayIndicator( false );
-                clearTimeout( this._autoplay_timer );
-                this._autoplay_timer = null;
-                resolve( true );
-            };
-            xhr.send( '{}' );
-        } );
-        return p;
+            // 400 {"meta":{"status":400,"errorCode":"BAD_REQUEST","errorMessage":"引用再生できない動画です"}}
+            let err = JSON.parse( text );
+            this.showAlert( `${err.meta.errorMessage}` );
+            //this.currentVideo = null;
+            throw err;
+        }
+        this.currentVideo = null;
+        this.setProgressMain( 0 );
+        this.setAutoplayIndicator( false );
+        clearTimeout( this._autoplay_timer );
+        this._autoplay_timer = null;
+        return true;
     },
 
     /**
@@ -381,94 +375,85 @@ var NicoLiveHelper = {
      */
     playVideo: async function( vinfo, is_change_volume ){
         // 現在再生中の動画を取得
-        let current = await HttpGet( `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation` );
+        let current = await HttpFetch( 'GET', `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation` );
 
         // 次動画の再生したあとに音量変更が走ると困るのでタイマーを取り消す
         clearTimeout( this._change_volume_timer );
-        let p = new Promise( ( resolve, reject ) => {
-            if( !this.isConnected() || !this.isCaster() ){
-                reject( null );
-                return;
-            }
-            if( GetCurrentTime() >= this.live_endtime ){
-                this.showAlert( `放送終了時刻を過ぎたため再生できません` );
-                reject( null );
-                return null;
-            }
 
-            let video_id = vinfo.video_id;
-            let newplay_url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
-            let changeurl = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation/contents`;
-            let newplay = current.status === 404;
+        if( !this.isConnected() || !this.isCaster() ){
+            throw null;
+        }
+        if( GetCurrentTime() >= this.live_endtime ){
+            this.showAlert( `放送終了時刻を過ぎたため再生できません` );
+            throw null;
+        }
 
-            let xhr;
-            if( newplay ){
-                xhr = CreateXHR( 'POST', newplay_url );
-            }else{
-                xhr = CreateXHR( 'PATCH', changeurl );
-            }
-            xhr.setRequestHeader( 'Content-type', 'application/json' );
-            xhr.onreadystatechange = () => {
-                if( xhr.readyState != 4 ) return;
-                if( xhr.status != 200 ){
-                    console.log( `${xhr.status} ${xhr.responseText}` );
+        let video_id = vinfo.video_id;
+        let newplay_url = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation`;
+        let changeurl = `${this.endpointUrl}/v1/tools/live/contents/${this.getLiveId()}/quotation/contents`;
+        let newplay = current.status === 404;
 
-                    // 400 {"meta":{"status":400,"errorCode":"BAD_REQUEST","errorMessage":"引用再生できない動画です"}}
-                    try{
-                        let err = JSON.parse( xhr.responseText );
-                        this.showAlert( `${vinfo.video_id}: ${err.meta.errorMessage}` );
-                        //this.currentVideo = null;
-                        reject( err );
-                    }catch( e ){
-                        this.showAlert( `${vinfo.video_id}の再生に失敗しました` );
-                        reject( null );
-                    }
-                    return;
+        let volume = this.getVolume();
+        let micvolume = this.getMicrophoneVolume();
+        let data = {
+            'contents': [
+                {
+                    'id': video_id,
+                    'type': 'video'
                 }
-                this.currentVideo = CopyObject( vinfo );
-                if( !is_change_volume ){
-                    // 再生成功したら、再生履歴に記録する
-                    NicoLiveHistory.addHistory( vinfo );
-                    this.sendVideoInfo( vinfo );
-
-                    let now = GetCurrentTime();
-                    this.currentVideo.play_begin = now;
-                    this.currentVideo.play_end = now + parseInt( this.currentVideo.length_ms / 1000 );
-
-                    let next = parseInt( this.currentVideo.length_ms / 1000 + Config['autoplay-interval'] );
-                    this.setNextPlayTimer( next );
+            ]
+        };
+        if( newplay ){
+            data['layout'] = {
+                'main': {
+                    'source': 'quote',
+                    'volume': volume
+                },
+                'sub': {
+                    'isSoundOnly': true,
+                    'source': 'self',
+                    'volume': micvolume
                 }
-                resolve( true );
             };
+            data['repeat'] = false;
+            data['enableAddViewCount'] = true;
+        }
 
-            let volume = this.getVolume();
-            let micvolume = this.getMicrophoneVolume();
-            let data = {
-                'contents': [
-                    {
-                        'id': video_id,
-                        'type': 'video'
-                    }
-                ]
-            };
-            if( newplay ){
-                data['layout'] = {
-                    'main': {
-                        'source': 'quote',
-                        'volume': volume
-                    },
-                    'sub': {
-                        'isSoundOnly': true,
-                        'source': 'self',
-                        'volume': micvolume
-                    }
-                };
-                data['repeat'] = false;
-                data['enableAddViewCount'] = true;
-            }
-            xhr.send( JSON.stringify( data ) );
+        let res = await HttpFetch( newplay ? 'POST' : 'PATCH', newplay ? newplay_url : changeurl, {
+            headers: {'Content-type': 'application/json'},
+            body: JSON.stringify( data )
         } );
-        return p;
+
+        if( !res.ok ){
+            let text = await res.text();
+            console.log( `${res.status} ${text}` );
+
+            // 400 {"meta":{"status":400,"errorCode":"BAD_REQUEST","errorMessage":"引用再生できない動画です"}}
+            try{
+                let err = JSON.parse( text );
+                this.showAlert( `${vinfo.video_id}: ${err.meta.errorMessage}` );
+                //this.currentVideo = null;
+                throw err;
+            }catch( e ){
+                this.showAlert( `${vinfo.video_id}の再生に失敗しました` );
+                throw null;
+            }
+        }
+
+        this.currentVideo = CopyObject( vinfo );
+        if( !is_change_volume ){
+            // 再生成功したら、再生履歴に記録する
+            NicoLiveHistory.addHistory( vinfo );
+            this.sendVideoInfo( vinfo );
+
+            let now = GetCurrentTime();
+            this.currentVideo.play_begin = now;
+            this.currentVideo.play_end = now + parseInt( this.currentVideo.length_ms / 1000 );
+
+            let next = parseInt( this.currentVideo.length_ms / 1000 + Config['autoplay-interval'] );
+            this.setNextPlayTimer( next );
+        }
+        return true;
     },
 
     /**
@@ -544,9 +529,9 @@ var NicoLiveHelper = {
      * @returns {Promise<any>}
      */
     getCurrentVideo: async function(){
-        let current = await HttpGet( `https://services-eapi.spi.nicovideo.jp/v1/tools/live/contents/${this.getLiveId()}/quotation` );
+        let current = await HttpFetch( 'GET', `https://services-eapi.spi.nicovideo.jp/v1/tools/live/contents/${this.getLiveId()}/quotation` );
         if( current.status !== 404 ){
-            let contents = JSON.parse( current.responseText );
+            let contents = await current.json();
             console.log( contents );
             return contents.currentContent?.id;
         }
@@ -936,34 +921,32 @@ var NicoLiveHelper = {
         text = this.replaceMacros( text, this.currentVideo );
         text = text.replace( /<br>/ig, "\n" );
 
-        let xhr = CreateXHR( 'PUT', url );
-        xhr.onreadystatechange = async () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                let error = JSON.parse( xhr.responseText );
-                console.log( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
-                if( error.meta.errorMessage.match( /リクエスト間隔が短/ ) ){
-                    let ms = this.calcBackoffTime( cnt + 1 );
-                    console.log( `${ms}ミリ 秒待機します(${cnt + 1})` );
-                    await Wait( ms );
-                    this.postCasterComment( text, mail, name, isPerm, cnt + 1 );
-                }else{
-                    this.showAlert( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
-                }
-                return;
-            }
-            console.log( `Comment posted: ${xhr.responseText}` );
-        };
-
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-
         let form = new FormData();
         form.append( 'text', text );
         form.append( 'command', mail );
         form.append( 'name', name );
         form.append( 'isPermanent', isPerm );
-        xhr.send( form );
+
+        let res = await HttpFetch( 'PUT', url, {
+            headers: {'X-Public-Api-Token': this.liveProp.site.relive.csrfToken},
+            body: form
+        } );
+        if( !res.ok ){
+            let text2 = await res.text();
+            console.log( `${res.status} ${text2}` );
+            let error = JSON.parse( text2 );
+            console.log( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
+            if( error.meta.errorMessage.match( /リクエスト間隔が短/ ) ){
+                let ms = this.calcBackoffTime( cnt + 1 );
+                console.log( `${ms}ミリ 秒待機します(${cnt + 1})` );
+                await Wait( ms );
+                this.postCasterComment( text, mail, name, isPerm, cnt + 1 );
+            }else{
+                this.showAlert( `コメント送信: ${error.meta.errorMessage || error.meta.errorCode}` );
+            }
+            return;
+        }
+        console.log( `Comment posted: ${await res.text()}` );
     },
 
     /**
@@ -1481,26 +1464,23 @@ var NicoLiveHelper = {
         } );
     },
 
-    startLive: function(){
+    startLive: async function(){
         let uri = `https://live2.nicovideo.jp/unama/api/v3/programs/${this.getLiveId()}/segment?state=on_air`;
-        let xhr = CreateXHR( 'PUT', uri );
-        xhr.onreadystatechange = async () => {
-            if( xhr.readyState != 4 ) return;
-            let error = JSON.parse( xhr.responseText );
-            if( xhr.status != 200 ){
-                console.log( `${xhr.status} ${xhr.responseText}` );
-                this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+        let res = await HttpFetch( 'PUT', uri, {
+            headers: {'X-Public-Api-Token': this.liveProp.site.relive.csrfToken}
+        } );
+        let text = await res.text();
+        let error = JSON.parse( text );
+        if( !res.ok ){
+            console.log( `${res.status} ${text}` );
+            this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
+        }else{
+            if( error.meta.status == 200 ){
+                this.showAlert( '放送を開始しました' );
             }else{
-                if( error.meta.status == 200 ){
-                    this.showAlert( '放送を開始しました' );
-                }else{
-                    this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
-                }
+                this.showAlert( `放送開始エラー: ${error.meta.errorCode}` );
             }
-        };
-
-        xhr.setRequestHeader( 'X-Public-Api-Token', this.liveProp.site.relive.csrfToken );
-        xhr.send();
+        }
     },
 
 
@@ -1659,22 +1639,18 @@ var NicoLiveHelper = {
      * @param video_id
      * @returns {Promise}
      */
-    getVideoInfo: function( video_id ){
-        let p1 = new Promise( ( resolve, reject ) => {
-            NicoApi.getthumbinfo( video_id, ( xml, req ) => {
-                try{
-                    let vinfo = NicoLiveHelper.extractVideoInfo( xml );
-                    vinfo.video_id = video_id;
-                    resolve( vinfo );
-                }catch( e ){
-                    if( e === 'DELETED' ){
-                    }
-                    console.log( 'extract failed:' + e + ' ' + video_id );
-                    reject( e );
-                }
-            } );
-        } );
-        return p1;
+    getVideoInfo: async function( video_id ){
+        let xml = await NicoApi.getthumbinfo( video_id );
+        try{
+            let vinfo = NicoLiveHelper.extractVideoInfo( xml );
+            vinfo.video_id = video_id;
+            return vinfo;
+        }catch( e ){
+            if( e === 'DELETED' ){
+            }
+            console.log( 'extract failed:' + e + ' ' + video_id );
+            throw e;
+        }
     },
 
     /**
@@ -1683,27 +1659,18 @@ var NicoLiveHelper = {
      * @param video_id
      * @returns {Promise<any>}
      */
-    isAvailableInNewLive: function( video_id ){
+    isAvailableInNewLive: async function( video_id ){
         let url = `${this.endpointUrl}/v1/tools/live/quote/services/video/contents/${video_id}`;
-        let p = new Promise( ( resolve, reject ) => {
-            let xhr = CreateXHR( 'GET', url );
-            xhr.onreadystatechange = () => {
-                if( xhr.readyState != 4 ) return;
-                if( xhr.status != 200 ){
-                    //let err = JSON.parse( xhr.responseText );
-                    resolve( false );
-                    return;
-                }
-                let res = JSON.parse( xhr.responseText );
-                if( res.meta.status == 200 ){
-                    resolve( res.data.quotable );
-                }else{
-                    resolve( false );
-                }
-            };
-            xhr.send();
-        } );
-        return p;
+        let response = await HttpFetch( 'GET', url );
+        if( !response.ok ){
+            //let err = JSON.parse( await response.text() );
+            return false;
+        }
+        let res = await response.json();
+        if( res.meta.status == 200 ){
+            return res.data.quotable;
+        }
+        return false;
     },
 
     /**

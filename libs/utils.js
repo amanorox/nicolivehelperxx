@@ -214,48 +214,35 @@ function GetParameterByName( name, url ){
 }
 
 /**
- * @param method GET or POST
+ * fetch APIを使用してHTTPリクエストを行う.
+ * @param method GET, POST, PUT, PATCH, DELETE等
  * @param uri URI
- * @param substitution 使用するセッションクッキーを指定(任意)
+ * @param options {headers, body} 任意
+ * @returns {Promise<Response>}
  */
-function CreateXHR( method, uri, substitution ){
-    let req = new XMLHttpRequest();
-    if( !req ) return null;
-    req.open( method, uri );
-    req.setRequestHeader("X-From-NicoLiveHelper-Extension", "1");
+async function HttpFetch( method, uri, options ){
+    options = options || {};
+    let headers = new Headers( options.headers || {} );
+    headers.set( "X-From-NicoLiveHelper-Extension", "1" );
 
     try{
-        req.setRequestHeader( "User-Agent", `NicoLiveHelperX/${NicoLiveHelper.version}` );
+        headers.set( "User-Agent", `NicoLiveHelperX/${NicoLiveHelper.version}` );
     }catch( e ){
     }
-    req.timeout = 30 * 1000; // 30sec timeout for Gecko 12.0+
-    return req;
-}
 
-function HttpGet( uri ){
-    let p = new Promise( ( resolve, reject ) => {
-        let xhr = CreateXHR( 'GET', uri );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            resolve( xhr );
-        };
-        xhr.send();
-    } );
-    return p;
-}
-
-function HttpOption( uri ){
-    let p = new Promise( ( resolve, reject ) => {
-        let xhr = CreateXHR( 'OPTION', uri );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            resolve( xhr );
-        };
-        console.log('option request');
-        xhr.setRequestHeader('Referer', `https://spi.nicovideo.jp/broadcast-tool/index.html?content_id=${NicoLiveHelper.getLiveId()}&content_type=live&frontend_id=12&frontend_version=90.0.0&id=0&item_list_disabled=false`);
-        xhr.send();
-    } );
-    return p;
+    // 30sec timeout (旧XHR実装と同じタイムアウト時間)
+    let controller = new AbortController();
+    let timer = setTimeout( () => controller.abort(), 30 * 1000 );
+    try{
+        return await fetch( uri, {
+            method: method,
+            headers: headers,
+            body: options.body,
+            signal: controller.signal
+        } );
+    }finally{
+        clearTimeout( timer );
+    }
 }
 
 

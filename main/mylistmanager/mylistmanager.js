@@ -264,23 +264,14 @@ let MyListManager = {
         }
     },
 
-    loadMyList: function( id, name ){
+    loadMyList: async function( id, name ){
         $( '#message' ).text( name + 'を取得しています...' );
 
         debugprint( 'load mylist(id=' + id + ')' );
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                $( '#message' ).text( '' );
-
-                if( req.status == 200 ){
-                    MyListManager.parseMyList( id, name, req.responseText );
-                }
-            }
-        };
-        if( id == 'default' ){
-            NicoApi.getDeflist( f );
-        }else{
-            NicoApi.getmylist( id, f );
+        let result = id == 'default' ? await NicoApi.getDeflist() : await NicoApi.getmylist( id );
+        $( '#message' ).text( '' );
+        if( result.ok ){
+            MyListManager.parseMyList( id, name, result.text );
         }
     },
 
@@ -310,44 +301,36 @@ let MyListManager = {
 
         $( '#message' ).text( "マイリストを取得しています..." );
 
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                $( '#message' ).text( "" );
+        (async () => {
+            let result = await NicoApi.getmylistgroup();
+            $( '#message' ).text( "" );
 
-                if( req.status == 200 ){
-                    MyListManager.mylists = JSON.parse( req.responseText );
+            if( !result.ok ) return;
+            MyListManager.mylists = JSON.parse( result.text );
 
-                    if( MyListManager.mylists.status == 'fail' ){
-                        $( '#message' ).text( MyListManager.mylists.error.description );
-                        return;
-                    }
-
-                    let folder = $( '#mylist' );
-                    for( let i = 0, grp; grp = MyListManager.mylists.data.mylists[i]; i++ ){
-                        let elem = document.createElement( 'option' );
-                        $( elem ).text( grp.name );
-                        $( elem ).attr( 'value', grp.id );
-                        folder.append( elem );
-                    }
-                }
+            if( MyListManager.mylists.status == 'fail' ){
+                $( '#message' ).text( MyListManager.mylists.error.description );
+                return;
             }
-        };
-        NicoApi.getmylistgroup( f );
+
+            let folder = $( '#mylist' );
+            for( let i = 0, grp; grp = MyListManager.mylists.data.mylists[i]; i++ ){
+                let elem = document.createElement( 'option' );
+                $( elem ).text( grp.name );
+                $( elem ).attr( 'value', grp.id );
+                folder.append( elem );
+            }
+        })();
     },
 
-    getToken: function(){
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let token = req.responseText.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
-                    if( !token ){
-                        token = req.responseText.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
-                    }
-                    MyListManager.apitoken = token;
-                }
-            }
-        };
-        NicoApi.getUserMylistPageApiToken( f );
+    getToken: async function(){
+        let result = await NicoApi.getUserMylistPageApiToken();
+        if( !result.ok ) return;
+        let token = result.text.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
+        if( !token ){
+            token = result.text.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
+        }
+        MyListManager.apitoken = token;
     },
 
     // TODO リクエスト追加処理を作成する
@@ -460,26 +443,18 @@ let MyListManager = {
         }
     },
 
-    getMyListPageToken: function( postfunc ){
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let token = req.responseText.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
-                    if( !token ){
-                        token = req.responseText.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
-                    }
+    getMyListPageToken: async function(){
+        let result = await NicoApi.getUserMylistPageApiToken();
+        if( !result.ok ) return;
+        let token = result.text.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
+        if( !token ){
+            token = result.text.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
+        }
 
-                    MyListManager.apitoken = token[1];
-                    if( "function" == typeof postfunc ){
-                        postfunc();
-                    }
-                    token = req.responseText.match( /nickname = \"(.*)\";/ );
-                    debugprint( token[1] );
-                    $( 'statusbar-username' ).label = token[1];
-                }
-            }
-        };
-        NicoApi.getUserMylistPageApiToken( f );
+        MyListManager.apitoken = token[1];
+        token = result.text.match( /nickname = \"(.*)\";/ );
+        debugprint( token[1] );
+        $( 'statusbar-username' ).label = token[1];
     },
 
     /**
@@ -488,24 +463,16 @@ let MyListManager = {
      * @param to
      * @param ids
      */
-    copy: function( from, to, ids ){
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let result = JSON.parse( req.responseText );
-                    if( result.status == "fail" ){
-                        SetStatusBarText( result.error.code + ": " + result.error.description );
-                    }else{
-                        SetStatusBarText( "コピーしました" );
-                    }
-                }
-            }
-        };
-
-        if( from == 'default' ){
-            NicoApi.copydeflist( to, ids, this.apitoken, f );
+    copy: async function( from, to, ids ){
+        let result = from == 'default' ?
+            await NicoApi.copydeflist( to, ids, this.apitoken ) :
+            await NicoApi.copymylist( from, to, ids, this.apitoken );
+        if( !result.ok ) return;
+        let data = JSON.parse( result.text );
+        if( data.status == "fail" ){
+            SetStatusBarText( data.error.code + ": " + data.error.description );
         }else{
-            NicoApi.copymylist( from, to, ids, this.apitoken, f );
+            SetStatusBarText( "コピーしました" );
         }
     },
 
@@ -561,23 +528,16 @@ let MyListManager = {
      * @param to
      * @param ids
      */
-    move: function( from, to, ids ){
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let result = JSON.parse( req.responseText );
-                    if( result.status == "fail" ){
-                        SetStatusBarText( result.error.code + ": " + result.error.description );
-                    }else{
-                        MyListManager.moveListItem( from, to, result );
-                    }
-                }
-            }
-        };
-        if( from == 'default' ){
-            NicoApi.movedeflist( to, ids, this.apitoken, f );
+    move: async function( from, to, ids ){
+        let result = from == 'default' ?
+            await NicoApi.movedeflist( to, ids, this.apitoken ) :
+            await NicoApi.movemylist( from, to, ids, this.apitoken );
+        if( !result.ok ) return;
+        let data = JSON.parse( result.text );
+        if( data.status == "fail" ){
+            SetStatusBarText( data.error.code + ": " + data.error.description );
         }else{
-            NicoApi.movemylist( from, to, ids, this.apitoken, f );
+            MyListManager.moveListItem( from, to, data );
         }
     },
 
@@ -585,7 +545,7 @@ let MyListManager = {
      * マイリスト一覧にドロップしたときの処理
      * @param e
      */
-    dropItemToMyList: function( e ){
+    dropItemToMyList: async function( e ){
         e = e.originalEvent;
         let dt = e.dataTransfer;
         let effect = dt.dropEffect; // copy, move
@@ -601,21 +561,17 @@ let MyListManager = {
         let tmp = dt.getData( "text/plain" );
         let ids = tmp.trim().split( /\s+/ );
 
-        let f = function(){
-            switch( effect ){
-            case "move":
-                MyListManager.move( source_list_id, target_list_id, ids );
-                break;
-            case "copy":
-                MyListManager.copy( source_list_id, target_list_id, ids );
-                break;
-            }
-        };
-
         if( !this.apitoken ){
-            this.getMyListPageToken( f );
-        }else{
-            f();
+            await this.getMyListPageToken();
+        }
+
+        switch( effect ){
+        case "move":
+            MyListManager.move( source_list_id, target_list_id, ids );
+            break;
+        case "copy":
+            MyListManager.copy( source_list_id, target_list_id, ids );
+            break;
         }
     },
 
@@ -653,7 +609,7 @@ let MyListManager = {
     /**
      * チェックした動画を削除する.
      */
-    delete: function(){
+    delete: async function(){
         if( !window.confirm( "選択した動画をマイリストから削除しますか?" ) ) return;
 
         let items = $( '.mylist_item_selected' );
@@ -669,30 +625,20 @@ let MyListManager = {
         }
         let ids = str.trim().split( /\s+/ );
         if( ids.length ){
-            let f = function(){
-                let f2 = function( xml, req ){
-                    if( req.readyState == 4 ){
-                        if( req.status == 200 ){
-                            let result = JSON.parse( req.responseText );
-                            if( result.status == "fail" ){
-                                SetStatusBarText( result.error.code + ": " + result.error.description );
-                            }else{
-                                SetStatusBarText( "削除しました" );
-                                MyListManager.deleteFromListItem( ids );
-                            }
-                        }
-                    }
-                };
-                if( id == 'default' ){
-                    NicoApi.deletedeflist( ids, MyListManager.apitoken, f2 );
-                }else{
-                    NicoApi.deletemylist( id, ids, MyListManager.apitoken, f2 );
-                }
-            };
             if( !this.apitoken ){
-                this.getMyListPageToken( f );
+                await this.getMyListPageToken();
+            }
+
+            let result = id == 'default' ?
+                await NicoApi.deletedeflist( ids, MyListManager.apitoken ) :
+                await NicoApi.deletemylist( id, ids, MyListManager.apitoken );
+            if( !result.ok ) return;
+            let data = JSON.parse( result.text );
+            if( data.status == "fail" ){
+                SetStatusBarText( data.error.code + ": " + data.error.description );
             }else{
-                f();
+                SetStatusBarText( "削除しました" );
+                MyListManager.deleteFromListItem( ids );
             }
         }
     },
@@ -723,40 +669,37 @@ let MyListManager = {
         // $( 'statusbar-progressmeter' ).value = 0;
     },
 
-    addMyListExec: function( item_id, mylist_id, token, video_id, additional_msg ){
+    addMyListExec: async function( item_id, mylist_id, token, video_id, additional_msg ){
         // 二段階目は取得したトークンを使ってマイリス登録をする.
-        let f = function( xml, req ){
-            if( req.readyState == 4 && req.status == 200 ){
-                let result = JSON.parse( req.responseText );
-                switch( result.status ){
-                case 'ok':
-                    // TODO マイリスト追加経過表示
-                    let max = MyListManager.max;
-                    let processed = max - MyListManager.registerMylistQueue.length;
-                    SetStatusBarText( video_id + 'をマイリストしました。(' + processed + '/' + max + ')' );
-                    setTimeout( function(){
-                        MyListManager.runAddingMyList();
-                    }, 1000 );
-                    break;
-                case 'fail':
-                    if( result.error.code == 'EXIST' ){
-                        setTimeout( function(){
-                            MyListManager.runAddingMyList();
-                        }, 1000 );
-                    }else{
-                        MyListManager.finishAddingMyList();
-                    }
-                    SetStatusBarText( result.error.description + ", " + video_id );
-                    break;
-                default:
-                    break;
-                }
+        let result = await NicoApi.addMylist( item_id, mylist_id, token, additional_msg );
+        if( !result.ok ) return;
+        let data = JSON.parse( result.text );
+        switch( data.status ){
+        case 'ok':
+            // TODO マイリスト追加経過表示
+            let max = MyListManager.max;
+            let processed = max - MyListManager.registerMylistQueue.length;
+            SetStatusBarText( video_id + 'をマイリストしました。(' + processed + '/' + max + ')' );
+            setTimeout( function(){
+                MyListManager.runAddingMyList();
+            }, 1000 );
+            break;
+        case 'fail':
+            if( data.error.code == 'EXIST' ){
+                setTimeout( function(){
+                    MyListManager.runAddingMyList();
+                }, 1000 );
+            }else{
+                MyListManager.finishAddingMyList();
             }
-        };
-        NicoApi.addMylist( item_id, mylist_id, token, additional_msg, f );
+            SetStatusBarText( data.error.description + ", " + video_id );
+            break;
+        default:
+            break;
+        }
     },
 
-    runAddingMyList: function(){
+    runAddingMyList: async function(){
         if( this.registerMylistQueue.length == 0 ){
             this.finishAddingMyList();
             this.refreshCurrentMylist();
@@ -774,24 +717,21 @@ let MyListManager = {
         }
 
         // 一段階目はトークンを取得する.
-        let f = function( xml, req ){
-            if( req.readyState == 4 && req.status == 200 ){
-                try{
-                    let token = req.responseText.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
-                    if( !token ){
-                        token = req.responseText.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
-                    }
-                    let item_id = req.responseText.match( /item_id\"\s*value=\"(.*)\">/ );
-                    debugprint( 'token=' + token[1] );
-                    debugprint( 'item_id=' + item_id[1] );
-                    MyListManager.addMyListExec( item_id[1], mylist_id, token[1], video_id, "" );
-                }catch( x ){
-                    MyListManager.finishAddingMyList();
-                    SetStatusBarText( "マイリスト登録に失敗しました: " + video_id );
-                }
+        let result = await NicoApi.getMylistToken( video_id );
+        if( !result.ok ) return;
+        try{
+            let token = result.text.match( /NicoAPI\.token\s*=\s*\"(.*)\";/ );
+            if( !token ){
+                token = result.text.match( /NicoAPI\.token\s*=\s*\'(.*)\';/ );
             }
-        };
-        NicoApi.getMylistToken( video_id, f );
+            let item_id = result.text.match( /item_id\"\s*value=\"(.*)\">/ );
+            debugprint( 'token=' + token[1] );
+            debugprint( 'item_id=' + item_id[1] );
+            await MyListManager.addMyListExec( item_id[1], mylist_id, token[1], video_id, "" );
+        }catch( x ){
+            MyListManager.finishAddingMyList();
+            SetStatusBarText( "マイリスト登録に失敗しました: " + video_id );
+        }
     },
 
     /**

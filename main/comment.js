@@ -121,26 +121,23 @@ var NicoLiveComment = {
      * @param defname デフォルト名
      */
     getProfileName: function( user_id, defname ){
-        let p = new Promise( ( resolve, reject ) => {
-            let req = CreateXHR( 'GET', `https://api.live2.nicovideo.jp/api/v1/user/nickname?userId=${user_id}` );
-            req.onreadystatechange = function(){
-                if( req.readyState == 4 ){
-                    if( req.status == 200 ){
-                        try{
-                            let text = req.responseText;
-                            let data = JSON.parse( text );
-                            resolve( data.data.nickname );
-                        }catch( x ){
-                            reject( '[Unknown]' )
-                        }
-                    }else{
-                        reject( '[Unknown]' )
-                    }
-                }
-            };
-            req.send();
-        } );
-        return p;
+        return (async () => {
+            let res;
+            try{
+                res = await HttpFetch( 'GET', `https://api.live2.nicovideo.jp/api/v1/user/nickname?userId=${user_id}` );
+            }catch( x ){
+                throw '[Unknown]';
+            }
+            if( !res.ok ){
+                throw '[Unknown]';
+            }
+            try{
+                let data = await res.json();
+                return data.data.nickname;
+            }catch( x ){
+                throw '[Unknown]';
+            }
+        })();
     },
 
     /**

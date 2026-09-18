@@ -155,119 +155,9 @@ var NicoLiveStock = {
         if( l ){
             for( let i = 0, mylist; mylist = l[i]; i++ ){
                 let id = mylist.match( /mylist\/(\d+)/ )[1];
-                NicoApi.getMylist_v2( id, ( xml, req ) => {
-                    if( req.readyState == 4 ){
-                        if( req.status == 200 ){
-                            let mylistobj = JSON.parse( req.responseText );
-                            let videos = [];
-                            console.log( mylistobj );
-                            for( let item of mylistobj.data.mylist.items ){
-                                videos.push( item.video.id ); // もしくは watch_id
-                                let dat = {
-                                    "pubDate": (new Date( item.addedAt )).getTime() / 1000,  // 登録日 UNIX time
-                                    "description": item.description
-                                };
-                                NicoLiveMylist.mylist_itemdata["_" + item.video.id] = dat;
-                            }
-                            NicoLiveStock.addStocks( videos.join( ' ' ) );
-                        }
-                    }
-                } );
-            }
-        }
-
-        $( '#input-stock-video' ).val( '' );
-    },
-
-    /**
-     * あとで見る（とりあえずマイリスト）からストックに追加する.
-     */
-    addStockFromDeflist: function(){
-        let f = function( xml, req ){
-            if( req.readyState == 4 && req.status == 200 ){
-                let result = JSON.parse( req.responseText );
-                switch( result.meta.status ){
-                case 200:
-                    let videos = new Array();
-                    for( let i = 0; i < result.data.watchLater.items.length; i++ ){
-                        videos.push( result.data.watchLater.items[i].watchId );
-                    }
-                    NicoLiveStock.addStocks( videos.join( ' ' ) );
-                    break;
-                case 'fail':
-                    break;
-                default:
-                    break;
-                }
-            }
-        };
-        NicoApi.getDeflist( f );
-    },
-
-    /**
-     * マイリストからストックに追加する.
-     * @param mylist_id マイリストのID
-     */
-    addStockFromMylist: function( mylist_id ){
-        console.log( `マイリスト${mylist_id}をストックに追加します。` );
-        if( mylist_id == 'deflist' ){
-            this.addStockFromDeflist();
-            return;
-        }
-
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let xml = req.responseXML;
-                    let items = xml.getElementsByTagName( 'item' );
-                    let videos = new Array();
-                    console.log( 'mylist rss items:' + items.length );
-                    for( let i = 0, item; item = items[i]; i++ ){
-                        let video_id;
-                        let description;
-                        try{
-                            video_id = item.getElementsByTagName( 'link' )[0].textContent.match( /(sm|nm)\d+|\d{10}/ );
-                        }catch( x ){
-                            video_id = "";
-                        }
-                        if( video_id ){
-                            videos.push( video_id[0] );
-                            try{
-                                description = item.getElementsByTagName( 'description' )[0].textContent;
-                                description = description.replace( /[\r\n]/mg, '<br>' );
-                                description = description.match( /<p class="nico-memo">(.*?)<\/p>/ )[1];
-                            }catch( x ){
-                                description = "";
-                            }
-
-                            let d = new Date( item.getElementsByTagName( 'pubDate' )[0].textContent );
-
-                            let dat = {
-                                "pubDate": d.getTime() / 1000,  // 登録日 UNIX time
-                                "description": description
-                            };
-                            NicoLiveMylist.mylist_itemdata["_" + video_id[0]] = dat;
-                        }
-                    }// end for.
-                    NicoLiveStock.addStocks( videos.join( ' ' ) );
-                }else{
-                    console.log( req );
-                    NicoLiveStock.addStockFromMylistViaApi( mylist_id );
-                }
-            }
-        };
-        NicoApi.mylistRSS( mylist_id, f );
-    },
-
-    /**
-     * マイリストからストックに追加する(API使用).
-     * @param mylist_id マイリストのID
-     */
-    addStockFromMylistViaApi: function( mylist_id ){
-        let f = function( xml, req ){
-            if( req.readyState == 4 ){
-                if( req.status == 200 ){
-                    let mylistobj = JSON.parse( req.responseText );
+                let result = await NicoApi.getMylist_v2( id );
+                if( result.ok ){
+                    let mylistobj = JSON.parse( result.text );
                     let videos = [];
                     console.log( mylistobj );
                     for( let item of mylistobj.data.mylist.items ){
@@ -281,8 +171,102 @@ var NicoLiveStock = {
                     NicoLiveStock.addStocks( videos.join( ' ' ) );
                 }
             }
-        };
-        NicoApi.getMylist( mylist_id, f );
+        }
+
+        $( '#input-stock-video' ).val( '' );
+    },
+
+    /**
+     * あとで見る（とりあえずマイリスト）からストックに追加する.
+     */
+    addStockFromDeflist: async function(){
+        let result = await NicoApi.getDeflist();
+        if( !result.ok ) return;
+        let data = JSON.parse( result.text );
+        switch( data.meta.status ){
+        case 200:
+            let videos = new Array();
+            for( let i = 0; i < data.data.watchLater.items.length; i++ ){
+                videos.push( data.data.watchLater.items[i].watchId );
+            }
+            NicoLiveStock.addStocks( videos.join( ' ' ) );
+            break;
+        case 'fail':
+            break;
+        default:
+            break;
+        }
+    },
+
+    /**
+     * マイリストからストックに追加する.
+     * @param mylist_id マイリストのID
+     */
+    addStockFromMylist: async function( mylist_id ){
+        console.log( `マイリスト${mylist_id}をストックに追加します。` );
+        if( mylist_id == 'deflist' ){
+            this.addStockFromDeflist();
+            return;
+        }
+
+        let xml = await NicoApi.mylistRSS( mylist_id );
+        if( !xml ){
+            NicoLiveStock.addStockFromMylistViaApi( mylist_id );
+            return;
+        }
+
+        let items = xml.getElementsByTagName( 'item' );
+        let videos = new Array();
+        console.log( 'mylist rss items:' + items.length );
+        for( let i = 0, item; item = items[i]; i++ ){
+            let video_id;
+            let description;
+            try{
+                video_id = item.getElementsByTagName( 'link' )[0].textContent.match( /(sm|nm)\d+|\d{10}/ );
+            }catch( x ){
+                video_id = "";
+            }
+            if( video_id ){
+                videos.push( video_id[0] );
+                try{
+                    description = item.getElementsByTagName( 'description' )[0].textContent;
+                    description = description.replace( /[\r\n]/mg, '<br>' );
+                    description = description.match( /<p class="nico-memo">(.*?)<\/p>/ )[1];
+                }catch( x ){
+                    description = "";
+                }
+
+                let d = new Date( item.getElementsByTagName( 'pubDate' )[0].textContent );
+
+                let dat = {
+                    "pubDate": d.getTime() / 1000,  // 登録日 UNIX time
+                    "description": description
+                };
+                NicoLiveMylist.mylist_itemdata["_" + video_id[0]] = dat;
+            }
+        }// end for.
+        NicoLiveStock.addStocks( videos.join( ' ' ) );
+    },
+
+    /**
+     * マイリストからストックに追加する(API使用).
+     * @param mylist_id マイリストのID
+     */
+    addStockFromMylistViaApi: async function( mylist_id ){
+        let result = await NicoApi.getMylist( mylist_id );
+        if( !result.ok ) return;
+        let mylistobj = JSON.parse( result.text );
+        let videos = [];
+        console.log( mylistobj );
+        for( let item of mylistobj.data.mylist.items ){
+            videos.push( item.video.id ); // もしくは watch_id
+            let dat = {
+                "pubDate": (new Date( item.addedAt )).getTime() / 1000,  // 登録日 UNIX time
+                "description": item.description
+            };
+            NicoLiveMylist.mylist_itemdata["_" + item.video.id] = dat;
+        }
+        NicoLiveStock.addStocks( videos.join( ' ' ) );
     },
 
     loadStocks: async function(){

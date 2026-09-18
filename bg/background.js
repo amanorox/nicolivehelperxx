@@ -125,23 +125,21 @@ function isAvailableInNewLive( request, sender, sendResponse ){
     console.log( request );
     let video_id = request.video_id;
     let url = `http://live2.nicovideo.jp/unama/api/v3/contents/${video_id}`;
-    let p = new Promise( ( resolve, reject ) => {
+    return (async () => {
         console.log( 'checking live available...' );
-        let xhr = CreateXHR( 'GET', url );
-        xhr.onreadystatechange = () => {
-            if( xhr.readyState != 4 ) return;
-            if( xhr.status != 200 ){
-                //let err = JSON.parse( xhr.responseText );
-                resolve( false );
-                return;
+        try{
+            let res = await HttpFetch( 'GET', url );
+            if( !res.ok ){
+                //let err = JSON.parse( await res.text() );
+                return false;
             }
-            let res = JSON.parse( xhr.responseText );
-            resolve( res.data );
-        };
-        console.log( 'aaa' );
-        xhr.send();
-    } );
-    return p;
+            let data = await res.json();
+            return data.data;
+        }catch( e ){
+            console.log( e );
+            return false;
+        }
+    })();
 }
 
 
