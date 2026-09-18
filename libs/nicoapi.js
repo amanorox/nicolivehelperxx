@@ -118,6 +118,7 @@ var NicoApi = {
     },
 
     mylistRSS: function( mylist_id, postfunc ){
+        // https://nvapi.nicovideo.jp/v2/mylists/2573798?pageSize=100&page=1&sensitiveContents=mask から取得
         let url = `https://www.nicovideo.jp/mylist/${mylist_id}?rss=2.0&lang=ja-jp&special_chars_decode=1
 `;
         this.callApi( url, postfunc );
@@ -130,6 +131,11 @@ var NicoApi = {
      */
     getMylist: function( mylist_id, postfunc ){
         let url = `https://nvapi.nicovideo.jp/v1/users/me/mylists/${mylist_id}?pageSize=500&page=1`
+        this.callApi( url, postfunc, null, this.nicoapi_header );
+    },
+
+    getMylist_v2: function( mylist_id, postfunc ){
+        let url=`https://nvapi.nicovideo.jp/v2/mylists/${mylist_id}?pageSize=500&page=1`;
         this.callApi( url, postfunc, null, this.nicoapi_header );
     },
 

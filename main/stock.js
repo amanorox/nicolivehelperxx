@@ -155,10 +155,24 @@ var NicoLiveStock = {
         if( l ){
             for( let i = 0, mylist; mylist = l[i]; i++ ){
                 let id = mylist.match( /mylist\/(\d+)/ )[1];
-                let video_ids = await NicoLiveMylist.retrieveVideoIdFromRSS( id );
-                for( let v of video_ids ){
-                    this.addStock( v );
-                }
+                NicoApi.getMylist_v2( id, ( xml, req ) => {
+                    if( req.readyState == 4 ){
+                        if( req.status == 200 ){
+                            let mylistobj = JSON.parse( req.responseText );
+                            let videos = [];
+                            console.log( mylistobj );
+                            for( let item of mylistobj.data.mylist.items ){
+                                videos.push( item.video.id ); // もしくは watch_id
+                                let dat = {
+                                    "pubDate": (new Date( item.addedAt )).getTime() / 1000,  // 登録日 UNIX time
+                                    "description": item.description
+                                };
+                                NicoLiveMylist.mylist_itemdata["_" + item.video.id] = dat;
+                            }
+                            NicoLiveStock.addStocks( videos.join( ' ' ) );
+                        }
+                    }
+                } );
             }
         }
 

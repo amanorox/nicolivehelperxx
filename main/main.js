@@ -86,7 +86,7 @@ var NicoLiveHelper = {
      * @returns {number}
      */
     getPlayStyle: function(){
-        return parseInt( $( '#sel-playstyle' ).val() );
+        return parseInt( document.querySelector( '#sel-playstyle' ).value );
     },
 
     /**
@@ -96,7 +96,7 @@ var NicoLiveHelper = {
      * @returns {number}
      */
     getRequestAllowedStatus: function(){
-        return parseInt( $( '#sel-allow-request' ).val() );
+        return parseInt( document.querySelector( '#sel-allow-request' ).value );
     },
 
     /**
@@ -156,7 +156,7 @@ var NicoLiveHelper = {
      * @param p パーセンテージ数
      */
     setProgressMain: function( p ){
-        $( '#progressbar-main' ).width( p + "%" );
+        document.querySelector( '#progressbar-main' ).style.width = p + "%";
     },
 
     /**
@@ -165,9 +165,9 @@ var NicoLiveHelper = {
      */
     setAutoplayIndicator: function( flg ){
         if( flg ){
-            $( '#status-autoplay' ).addClass( 'autoplaying' );
+            document.querySelector( '#status-autoplay' ).classList.add( 'autoplaying' );
         }else{
-            $( '#status-autoplay' ).removeClass( 'autoplaying' );
+            document.querySelector( '#status-autoplay' ).classList.remove( 'autoplaying' );
         }
     },
 
@@ -437,11 +437,6 @@ var NicoLiveHelper = {
 
                     let next = parseInt( this.currentVideo.length_ms / 1000 + Config['autoplay-interval'] );
                     this.setNextPlayTimer( next );
-
-                    if( Config['tweet-on-play'] ){
-                        let str = this.replaceMacros( Config['tweet-text'], this.currentVideo );
-                        Twitter.updateStatus( str );
-                    }
                 }
                 resolve( true );
             };
@@ -573,7 +568,7 @@ var NicoLiveHelper = {
         this.currentVideo = vinfo;
         this.currentVideo.play_begin = GetCurrentTime();
         this.currentVideo.play_end = GetCurrentTime();
-        $( '#remaining-time-main' ).text( vinfo.title );
+        document.querySelector( '#remaining-time-main' ).textContent = vinfo.title;
     },
 
 
@@ -1422,14 +1417,14 @@ var NicoLiveHelper = {
             break;
 
         case 'statistics':
-            $( '#number-of-listeners' ).text( FormatCommas( body.viewers ) );
+            document.querySelector( '#number-of-listeners' ).textContent = FormatCommas( body.viewers );
             console.log( `Now ${body.viewers} listener(s).` );
             break;
         case 'schedule':
             console.log( body.begin );
             this.live_begintime = parseInt( (new Date( body.begin )).getTime() / 1000 );
             this.live_endtime = parseInt( (new Date( body.end )).getTime() / 1000 );
-            $( '#live-progress' ).attr( 'title', `終了日時: ${GetDateTimeString( this.live_endtime * 1000, 1 )}` );
+            document.querySelector( '#live-progress' ).setAttribute( 'title', `終了日時: ${GetDateTimeString( this.live_endtime * 1000, 1 )}` );
             break;
 
         case 'ping':
@@ -1782,7 +1777,7 @@ var NicoLiveHelper = {
         let elem = clone2.firstElementChild;
         elem.setAttribute( 'nico_video_id', vinfo.video_id );
         if( vinfo.is_played ){
-            $( elem ).addClass( 'video_played' );
+            elem.classList.add( 'video_played' );
         }
 
         let thumbnail_image = elem.querySelector( '.nico-thumbnail' );
@@ -1794,14 +1789,14 @@ var NicoLiveHelper = {
         let link = elem.querySelector( '.nico-link' );
         let rights_code = elem.querySelector( '.rights-code' );
 
-        $( rights_code ).text( vinfo.rights_code );
+        rights_code.textContent = vinfo.rights_code;
 
         if( vinfo.no_live_play ){
-            $( title ).addClass( 'no_live_play' );
+            title.classList.add( 'no_live_play' );
         }
         if( vinfo.is_self_request ){
-            $( elem ).addClass( 'self_request' );
-            $( title ).addClass( 'self_request' );
+            elem.classList.add( 'self_request' );
+            title.classList.add( 'self_request' );
         }
 
         link.setAttribute( "href", "http://www.nicovideo.jp/watch/" + vinfo.video_id );
@@ -1938,13 +1933,13 @@ var NicoLiveHelper = {
      * @param text
      */
     showAlert: function( text, nohide ){
-        $( '#my-alert-message' ).text( text );
-        $( '#my-alert' ).show( 100 );
+        document.querySelector( '#my-alert-message' ).textContent = text;
+        document.querySelector( '#my-alert' ).style.display = 'block';
 
         clearTimeout( this._alert_timer );
         if( !nohide ){
             this._alert_timer = setTimeout( function(){
-                $( '#my-alert' ).hide( 100 );
+                document.querySelector( '#my-alert' ).style.display = 'none';
             }, 4000 );
         }
     },
@@ -1969,7 +1964,7 @@ var NicoLiveHelper = {
                 text = `${current.title}(枠残り${GetTimeString( this.live_endtime - current.play_end )})`;
                 break;
             }
-            $( '#remaining-time-main' ).text( text );
+            document.querySelector( '#remaining-time-main' ).textContent = text;
 
             let len = parseInt( current.length_ms / 1000 );
             let t = now - current.play_begin;
@@ -1978,7 +1973,7 @@ var NicoLiveHelper = {
             if( percent > 100 ) percent = 100;
             this.setProgressMain( percent );
         }catch( e ){
-            $( '#remaining-time-main' ).text( `---(-0:00)` );
+            document.querySelector( '#remaining-time-main' ).textContent = `---(-0:00)`;
         }
     },
 
@@ -1993,23 +1988,23 @@ var NicoLiveHelper = {
         // 生放送の経過時間
         if( this.live_begintime ){
             let liveprogress = now - this.live_begintime;
-            $( '#live-progress' ).text( liveprogress < 0 ? `-${GetTimeString( -liveprogress )}` : GetTimeString( liveprogress ) );
+            document.querySelector( '#live-progress' ).textContent = liveprogress < 0 ? `-${GetTimeString( -liveprogress )}` : GetTimeString( liveprogress );
         }
     },
 
 
     initUI: async function(){
-        $( '#btn-play-next' ).on( 'click', ( ev ) => {
+        document.querySelector( '#btn-play-next' ).addEventListener( 'click', ( ev ) => {
             // 次を再生
             this.playNext();
         } );
 
-        $( '#btn-stop-play' ).on( 'click', ( ev ) => {
+        document.querySelector( '#btn-stop-play' ).addEventListener( 'click', ( ev ) => {
             // 再生停止
             this.stopVideo();
         } );
 
-        $( '#btn-resend-info' ).on( 'click', ( ev ) => {
+        document.querySelector( '#btn-resend-info' ).addEventListener( 'click', ( ev ) => {
             // 動画情報の送信
             this.sendVideoInfo( this.currentVideo );
         } );
@@ -2023,14 +2018,14 @@ var NicoLiveHelper = {
             document.querySelector( '#icon-stock-random' ).style.display = f ? 'inline' : 'none';
         };
         fstockplay( flg );
-        $( '#play-stock-random' ).on( 'change', ( ev ) => {
+        document.querySelector( '#play-stock-random' ).addEventListener( 'change', ( ev ) => {
             let flg = document.querySelector( '#play-stock-random' ).checked;
             fstockplay( flg );
             localStorage.setItem( 'stock-random', flg );
         } );
 
         /* プレイスタイルの変更 */
-        $( '#sel-playstyle' ).on( 'change', ( ev ) => {
+        document.querySelector( '#sel-playstyle' ).addEventListener( 'change', ( ev ) => {
             if( this.getPlayStyle() == 0 ){
                 this.setAutoplayIndicator( false );
             }else{
@@ -2043,22 +2038,22 @@ var NicoLiveHelper = {
             browser.storage.local.set( {'playstyle': this.getPlayStyle()} );
         } );
         let ps = (await browser.storage.local.get( 'playstyle' )).playstyle || 0;
-        $( '#sel-playstyle' ).val( ps );
+        document.querySelector( '#sel-playstyle' ).value = ps;
 
         // マイリストマネージャーを開く
-        $( '#mylist-manager' ).on( 'click', ( ev ) => {
+        document.querySelector( '#mylist-manager' ).addEventListener( 'click', ( ev ) => {
             window.open( 'mylistmanager/mylistmanager.html', 'nicolivehelperx_mylistmanager',
                 'width=640,height=480,menubar=no,toolbar=no,location=no' );
         } );
 
         // 動画DBを開く
-        $( '#open-video-db' ).on( 'click', ( ev ) => {
+        document.querySelector( '#open-video-db' ).addEventListener( 'click', ( ev ) => {
             window.open( 'db/videodb.html', 'nicolivehelperx_videodb',
                 'width=640,height=480,menubar=no,toolbar=no,location=no' );
         } );
 
         // 次枠を作成
-        $( '#create-next-live' ).on( 'click', async ( ev ) => {
+        document.querySelector( '#create-next-live' ).addEventListener( 'click', async ( ev ) => {
             let tab = browser.tabs.create( {
                 'active': true,
                 'url': `https://live2.nicovideo.jp/create?reuse_id=${this.getLiveId()}`
@@ -2066,29 +2061,29 @@ var NicoLiveHelper = {
         } );
 
         // 連続コメントを開く
-        $( '#continuous-comment' ).on( 'click', ( ev ) => {
+        document.querySelector( '#continuous-comment' ).addEventListener( 'click', ( ev ) => {
             window.open( 'cc/continuouscomment.html', 'nicolivehelperx_cc',
                 'width=320,height=320,menubar=no,toolbar=no,location=no' );
         } );
 
         // アンケートを開く
-        $( '#enquete' ).on( 'click', ( ev ) => {
+        document.querySelector( '#enquete' ).addEventListener( 'click', ( ev ) => {
             window.open( 'q/enquete.html', 'nicolivehelperx_enquete',
                 'width=480,height=320,menubar=no,toolbar=no,location=no' );
         } );
 
         // コメントを保存する
-        $( '#save-comment' ).on( 'click', ( ev ) => {
+        document.querySelector( '#save-comment' ).addEventListener( 'click', ( ev ) => {
             NicoLiveComment.saveFile();
         } );
 
         // 設定を開く
-        $( '#open-settings' ).on( 'click', ( ev ) => {
+        document.querySelector( '#open-settings' ).addEventListener( 'click', ( ev ) => {
             browser.runtime.openOptionsPage();
         } );
 
         // ウィンドウを閉じる
-        $( '#close-window' ).on( 'click', ( ev ) => {
+        document.querySelector( '#close-window' ).addEventListener( 'click', ( ev ) => {
             window.close();
         } );
 
@@ -2097,14 +2092,14 @@ var NicoLiveHelper = {
         let frequest = () => {
             switch( this.getRequestAllowedStatus() ){
             case 0:
-                $( '#status-allow-request' ).addClass( 'allowrequest' );
+                document.querySelector( '#status-allow-request' ).classList.add( 'allowrequest' );
                 break;
             default:
-                $( '#status-allow-request' ).removeClass( 'allowrequest' );
+                document.querySelector( '#status-allow-request' ).classList.remove( 'allowrequest' );
                 break;
             }
         };
-        $( '#sel-allow-request' ).on( 'change', ( ev ) => {
+        document.querySelector( '#sel-allow-request' ).addEventListener( 'change', ( ev ) => {
             frequest();
         } );
         frequest();
@@ -2133,21 +2128,22 @@ var NicoLiveHelper = {
             max: 10,
             value: 0,
             slide: function( event, ui ){
-                $( '#microphone-volume-setting' ).attr( 'title', `マイク音量:${ui.value}` );
+                document.querySelector( '#microphone-volume-setting' ).setAttribute( 'title', `マイク音量:${ui.value}` );
                 NicoLiveHelper.changeVolume();
             }
         } );
 
-        $( '#microphone-volume-setting' ).on( 'click', ( ev ) => {
-            if( $( '#slider-microphone-volume' ).is( ':visible' ) ){
-                $( '#slider-microphone-volume' ).hide();
+        document.querySelector( '#microphone-volume-setting' ).addEventListener( 'click', ( ev ) => {
+            let slider = document.querySelector( '#slider-microphone-volume' );
+            if( slider.style.display !== 'none' && slider.style.display !== '' ){
+                slider.style.display = 'none';
             }else{
-                $( '#slider-microphone-volume' ).show();
+                slider.style.display = 'block';
             }
         } );
 
         /* とりマイ追加 */
-        $( '#btn-add-toriaezu-mylist' ).on( 'click', ( ev ) => {
+        document.querySelector( '#btn-add-toriaezu-mylist' ).addEventListener( 'click', ( ev ) => {
             let video_id = this.currentVideo.video_id;
             // coxxx lvxxx xxx から登録
             let additional_msg = `${NicoLiveHelper.getCommunityId()} ${NicoLiveHelper.getLiveId()} ${NicoLiveHelper.getLiveTitle()} から登録`;
@@ -2159,7 +2155,7 @@ var NicoLiveHelper = {
         } );
 
         /**/
-        $( '#progressbar' ).on( 'click', ( ev ) => {
+        document.querySelector( '#progressbar' ).addEventListener( 'click', ( ev ) => {
             this._remain_timer_format_type++;
             this._remain_timer_format_type %= 3;
             this.updateVideoProgress( GetCurrentTime() );
@@ -2268,7 +2264,6 @@ var NicoLiveHelper = {
             if( changes.config ){
                 MergeSimpleObject( Config, changes.config.newValue );
                 console.log( Config );
-                Twitter.init(); // 認証トークンをConfigから読ませるために
                 NicoLiveRequest.loadNGVideo();
                 this.updatePNameWhitelist();
             }
@@ -2298,7 +2293,6 @@ var NicoLiveHelper = {
 
         DB.initDB();
         Talker.init();
-        Twitter.init();
         NicoLiveMylist.init();
         NicoLiveRequest.init();
         NicoLiveStock.init();
@@ -2313,16 +2307,16 @@ var NicoLiveHelper = {
             }
 
             if( this.liveProp.program.providerType === 'official' ){
-                $( '#community-id' ).text( 'OFFICIAL' );
+                document.querySelector( '#community-id' ).textContent = 'OFFICIAL';
             }else{
-                $( '#community-id' ).text( this.liveProp.community.id );
-                $( '#live-caster' ).text( this.liveProp.program.supplier.name );
+                document.querySelector( '#community-id' ).textContent = this.liveProp.community.id;
+                document.querySelector( '#live-caster' ).textContent = this.liveProp.program.supplier.name;
             }
-            $( '#live-title' ).text( this.liveProp.program.title );
+            document.querySelector( '#live-title' ).textContent = this.liveProp.program.title;
 
             if( !this.isCaster() ){
                 // コメント送信タイプを視聴者に設定
-                $( '#type-of-comment' ).val( 1 );
+                document.querySelector( '#type-of-comment' ).value = 1;
             }
         }
 
@@ -2348,7 +2342,7 @@ var NicoLiveHelper = {
                             let now = GetCurrentTime();
                             this.currentVideo.play_begin = now;
                             this.currentVideo.play_end = now + parseInt( this.currentVideo.length_ms / 1000 );
-                            $( '#remaining-time-main' ).text( vinfo.title );
+                            document.querySelector( '#remaining-time-main' ).textContent = vinfo.title;
                         }
                     }
                     break;

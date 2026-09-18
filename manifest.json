@@ -16,7 +16,6 @@
   },
   "permissions": [
     "*://*.nicovideo.jp/*",
-    "https://api.twitter.com/*",
     "contextMenus",
     "notifications",
     "storage",

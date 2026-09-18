@@ -31,7 +31,7 @@ var NicoLiveMylist = {
      * @param mylist_id
      * @returns {Promise<any>}
      */
-    retrieveVideoIdFromRSS: async function( mylist_id ){
+    _retrieveVideoIdFromRSS: async function( mylist_id ){
         let p = new Promise( ( resolve, reject ) =>{
             let f = ( xml, req ) =>{
                 if( req.readyState == 4 ){
