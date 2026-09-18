@@ -26,6 +26,11 @@ var NicoLiveStock = {
 
     _queue: [],
 
+    /**
+     * キュー処理の中断が要求されているかどうか.
+     */
+    _cancelRequested: false,
+
 
     /**
      * リクエスト登録のキューを処理する.
@@ -53,6 +58,15 @@ var NicoLiveStock = {
         }
 
         this._queue.shift();
+
+        if( this._cancelRequested ){
+            // 中断要求があった場合は残りのキューを破棄する
+            this._queue = [];
+            this._cancelRequested = false;
+        }
+
+        this._updateQueueUI();
+
         if( this._queue.length > 0 ){
             this._runQueue();
         }
@@ -61,6 +75,25 @@ var NicoLiveStock = {
         this._timer = setTimeout( () => {
             this.saveStocks();
         }, 1500 );
+    },
+
+    /**
+     * 実行中のキュー処理を中断する.
+     * 現在処理中の1件は完了させ、残りのキューは破棄する.
+     */
+    cancelQueue: function(){
+        if( this._queue.length === 0 ) return;
+        this._cancelRequested = true;
+    },
+
+    /**
+     * キューの残数表示・中断ボタンの表示状態を更新する.
+     * @private
+     */
+    _updateQueueUI: function(){
+        let remaining = this._queue.length;
+        $( '#stock-queue-remaining' ).text( remaining );
+        $( '#stock-queue-status' ).toggle( remaining > 0 );
     },
 
     /**
@@ -130,6 +163,7 @@ var NicoLiveStock = {
 
         let n = this._queue.length;
         this._queue.push( q );
+        this._updateQueueUI();
         if( n === 0 ){
             this._runQueue();
         }
@@ -686,6 +720,10 @@ var NicoLiveStock = {
 
         $( '#btn-shuffle-stock' ).on( 'click', ( ev ) => {
             this.shuffleStocks();
+        } );
+
+        $( '#btn-cancel-stock-queue' ).on( 'click', ( ev ) => {
+            this.cancelQueue();
         } );
 
         $( '#menu-stock-update-all' ).on( 'click', ( ev ) => {

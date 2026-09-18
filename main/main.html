@@ -265,6 +265,11 @@
           </span>
         </div>
         <span id="total-stock-time" style="margin-left:4px;">0分00秒</span>
+        <span id="stock-queue-status" style="display:none; margin-left:8px;">
+          動画情報取得中: <span id="stock-queue-remaining">0</span>件待機
+          <button id="btn-cancel-stock-queue" type="button" class="btn btn-outline-danger btn-sm"
+                  title="ストックへの追加処理を中断します">中断</button>
+        </span>
       </div>
       <div id="stock-view" class="flex1">
         <table id="stock-table" class="table table-hover video-list">
