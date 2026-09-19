@@ -1236,7 +1236,7 @@ var NicoLiveHelper = {
 
     connectCommentServer: async function( room ){
         const fwd = protobuf.roots.default.dwango.nicolive.chat.service.edge.ChunkedEntry;
-        let next = GetCurrentTime() - 5 * 60;
+        let next = GetCurrentTime() - 5 * 60;   // 5分前から取得する
         let init_phase = true;
         while( next ){
             const current_next = next;
@@ -1310,75 +1310,6 @@ var NicoLiveHelper = {
             console.log( {"status": res.status, "fetch error": room.viewUri} );
             throw new Error( "fetch error", room.viewUri );
         }
-    },
-
-    /**
-     * WebSocketでコメントサーバーに接続する.
-     * @param room
-     */
-    connectCommentServer_: function( room ){
-        console.log( 'connect comment server(websocket)...' );
-        console.log( `websocket uri: ${room.viewUri}` );
-        console.log( `thread id: ${room.threadId}` );
-        console.log( `room name: ${room.name}` );
-        // console.log( `server type: ${room.messageServer.type}` );
-
-        this.threadId = room.threadId;
-        this.yourPostKey = room.yourPostKey;
-
-        // sub-protocol "msg.nicovideo.jp#json"
-        this._comment_svr = new Comm( room.viewUri, "msg.nicovideo.jp#json" );
-        this._comment_svr.connect();
-        this._comment_svr.onConnect( ( ev ) => {
-            console.log( 'comment server connected.' );
-            this.connecttime = GetCurrentTime();
-
-            // 過去ログ取得行数指定
-            let lines = Config['comment-backlog-num'] * -1;
-            // let lines = -50;
-            let str = {
-                "thread": {
-                    "thread": "" + room.threadId,
-                    "version": "20061206",
-                    "user_id": this.nico_user_id,
-                    "res_from": lines,
-                    "with_global": 1,
-                    "scores": 1,
-                    "nicoru": 0,
-                    "threadKey": room.yourPostKey
-                }
-            };
-            this._comment_svr.send( JSON.stringify( str ) );
-            // TODO サーバーに接続した時の処理をここに書く
-            this.showAlert( `コメントサーバーに接続しました` );
-
-            // 再生履歴に番組名と開始時刻を記録
-            let hist;
-            hist = `${this.liveProp.program.nicoliveProgramId} ${this.liveProp.program.title} (${GetDateString( this.liveProp.program.beginTime * 1000, true )}-)\n`;
-            NicoLiveHistory.addHistoryText( hist );
-
-            (async () => {
-                await this.initProgressBar();
-                if( !this.currentVideo ){
-                    this.sendStartupComment();
-                }
-            })();
-
-            setInterval( () => {
-                // 1分間隔で空データ送ってるのでkeepalive用っぽい
-                this._comment_svr.send( '' );
-            }, 60 * 1000 );
-        } );
-        this._comment_svr.onReceive( ( ev ) => {
-            let data = JSON.parse( ev.data );
-            this.onCommentReceived( data );
-        } );
-        this._comment_svr.onError( ( ev ) => {
-            console.log( ev );
-            let str = `コメントサーバーとの接続でエラーが発生しました`;
-            this.showAlert( str, true );
-            alert( str );
-        } );
     },
 
     onWatchCommandReceived: function( data ){
