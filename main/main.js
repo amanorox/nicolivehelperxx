@@ -1219,7 +1219,7 @@ var NicoLiveHelper = {
                 text: op_message || user_message?.content || "",
                 text_notag: op_message || user_message?.content || "",
                 name: user_message?.name || "",
-                user_id: user_message?.hashedUserId || msg?.meta?.id || "0",
+                user_id: user_message?.rawUserId || msg?.meta?.id || "0",
                 no: user_message?.no || 0,
                 comment_no: user_message?.no || 0,
             };
