@@ -293,11 +293,11 @@ var NicoLiveComment = {
         str = str.replace( /(\r\n|\r|\n)/gm, "<br>" );
 
         // sm,nmにリンクを貼り付け.
-        str = str.replace( /((sm|nm)\d+)/g,
+        str = str.replace( /((sm|nm|ss)\d+)/g,
             "<a target=\"_blank\" href=\"http://www.nicovideo.jp/watch/$1\">$1</a>" );
         if( comment.premium != 3 ){
             // 数字10桁にもリンク.
-            if( !str.match( /(sm|nm)\d+/ ) ){
+            if( !str.match( /(sm|nm|ss)\d+/ ) ){
                 str = str.replace( /(\d{10})/g, "<a target=\"_blank\" href=\"http://www.nicovideo.jp/watch/$1\">$1</a>" );
             }
         }
@@ -308,7 +308,7 @@ var NicoLiveComment = {
             let links = td.querySelectorAll( 'a' );
             for( let i = 0, item; item = links[i]; i++ ){
                 let addr = item.getAttribute( 'href' );
-                let id = addr.match( /(sm|nm|so)\d+|\d{10}/ );
+                let id = addr.match( /(sm|nm|so|ss)\d+|\d{10}/ );
                 if( id ){
                     item.addEventListener( 'mouseover', ( ev ) => {
                         NicoLiveHelper.showThumbnail( ev, id[0] );
