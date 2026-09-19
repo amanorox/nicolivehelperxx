@@ -70,14 +70,22 @@ var VideoDB = {
         if( l ){
             for( let i = 0, mylist; mylist = l[i]; i++ ){
                 let id = mylist.match( /mylist\/(\d+)/ )[1];
-                let video_ids = await window.opener.NicoLiveMylist.retrieveVideoIdFromRSS( id );
-                for( let v of video_ids ){
-                    try{
-                        let vinfo = await window.opener.NicoLiveHelper.getVideoInfo( v );
-                        this.db.videodb.put( vinfo );
-                        console.log( `${v}を追加しました` );
-                    }catch( e ){
-                        console.log( `動画DBに追加失敗: ${v}` );
+
+                let result = await NicoApi.getMylist_v2( id );
+                if( result.ok ){
+                    let mylistobj = JSON.parse( result.text );
+                    let videos = [];
+                    console.log( mylistobj );
+                    for( let item of mylistobj.data.mylist.items ){
+                        let v = item.video.id;
+                        try{
+                            let vinfo = await window.opener.NicoLiveHelper.getVideoInfo( v );
+                            this.db.videodb.put( vinfo );
+                            console.log( `${v}を追加しました` );
+                        }catch( e ){
+                            console.log( `動画DBに追加失敗: ${v}` );
+                        }
+
                     }
                 }
             }
