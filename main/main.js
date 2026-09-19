@@ -1006,7 +1006,7 @@ var NicoLiveHelper = {
     processListenersComment: function( chat ){
         let text = chat.text_notag;
 
-        if( text.match( /((sm|nm)\d+)/ ) ){
+        if( text.match( /((sm|nm|ss)\d+)/ ) ){
             let video_id = RegExp.$1;
             let is_self_request = !!text.match( /[^他](貼|張)|自|関/ );
             let code = "";
@@ -1798,7 +1798,7 @@ var NicoLiveHelper = {
                     a.setAttribute( "style", "text-decoration: underline;" );
                     a.appendChild( document.createTextNode( s ) );
                     div2.appendChild( a );
-                }else if( s.match( /(sm|nm)\d+/ ) ){
+                }else if( s.match( /(sm|nm|ss)\d+/ ) ){
                     let a = document.createElement( 'a' );
                     let vid = s;
                     a.setAttribute( "href", "http://www.nicovideo.jp/watch/" + vid );

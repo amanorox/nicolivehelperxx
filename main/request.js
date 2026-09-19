@@ -31,7 +31,7 @@ var NicoLiveRequest = {
 
     loadNGVideo: function(){
         let str = Config['ng-video-list'];
-        let videos = str.match( /(sm|nm)\d+/g );
+        let videos = str.match( /(sm|nm|ss)\d+/g );
         this.ngvideos = {};
         try{
             for( let i = 0, v; v = videos[i]; i++ ){
@@ -291,7 +291,7 @@ var NicoLiveRequest = {
     addRequests: async function( video_id ){
         console.log( video_id );
         if( video_id.length < 3 ) return;
-        let l = video_id.match( /(sm|nm|so)\d+|\d{10}/g );
+        let l = video_id.match( /(sm|nm|so|ss)\d+|\d{10}/g );
 
         for( let i = 0, id; id = l[i]; i++ ){
             // TODO テスト用にコメント番号を付けているので不要になったら削除
