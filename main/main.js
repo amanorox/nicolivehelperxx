@@ -2197,7 +2197,7 @@ var NicoLiveHelper = {
             if( this.liveProp.program.providerType === 'official' ){
                 document.querySelector( '#community-id' ).textContent = 'OFFICIAL';
             }else{
-                document.querySelector( '#community-id' ).textContent = this.liveProp.community.id;
+                // document.querySelector( '#community-id' ).textContent = this.liveProp.community.id;
                 document.querySelector( '#live-caster' ).textContent = this.liveProp.program.supplier.name;
             }
             document.querySelector( '#live-title' ).textContent = this.liveProp.program.title;
