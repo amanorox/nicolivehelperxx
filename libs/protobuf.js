@@ -1,6 +1,6 @@
 /*!
- * protobuf.js v7.1.0 (c) 2016, daniel wirtz
- * compiled thu, 22 sep 2022 17:16:10 utc
+ * protobuf.js v8.6.6 (c) 2016, daniel wirtz
+ * compiled sat, 04 jul 2026 01:09:57 utc
  * licensed under the bsd-3-clause license
  * see: https://github.com/dcodeio/protobuf.js for details
  */
@@ -38,1077 +38,8 @@
         module.exports = protobuf;
 
 })/* end of prelude */({1:[function(require,module,exports){
-"use strict";
-module.exports = asPromise;
-
-/**
- * Callback as used by {@link util.asPromise}.
- * @typedef asPromiseCallback
- * @type {function}
- * @param {Error|null} error Error, if any
- * @param {...*} params Additional arguments
- * @returns {undefined}
- */
-
-/**
- * Returns a promise from a node-style callback function.
- * @memberof util
- * @param {asPromiseCallback} fn Function to call
- * @param {*} ctx Function context
- * @param {...*} params Function arguments
- * @returns {Promise<*>} Promisified function
- */
-function asPromise(fn, ctx/*, varargs */) {
-    var params  = new Array(arguments.length - 1),
-        offset  = 0,
-        index   = 2,
-        pending = true;
-    while (index < arguments.length)
-        params[offset++] = arguments[index++];
-    return new Promise(function executor(resolve, reject) {
-        params[offset] = function callback(err/*, varargs */) {
-            if (pending) {
-                pending = false;
-                if (err)
-                    reject(err);
-                else {
-                    var params = new Array(arguments.length - 1),
-                        offset = 0;
-                    while (offset < params.length)
-                        params[offset++] = arguments[offset];
-                    resolve.apply(null, params);
-                }
-            }
-        };
-        try {
-            fn.apply(ctx || null, params);
-        } catch (err) {
-            if (pending) {
-                pending = false;
-                reject(err);
-            }
-        }
-    });
-}
 
 },{}],2:[function(require,module,exports){
-"use strict";
-
-/**
- * A minimal base64 implementation for number arrays.
- * @memberof util
- * @namespace
- */
-var base64 = exports;
-
-/**
- * Calculates the byte length of a base64 encoded string.
- * @param {string} string Base64 encoded string
- * @returns {number} Byte length
- */
-base64.length = function length(string) {
-    var p = string.length;
-    if (!p)
-        return 0;
-    var n = 0;
-    while (--p % 4 > 1 && string.charAt(p) === "=")
-        ++n;
-    return Math.ceil(string.length * 3) / 4 - n;
-};
-
-// Base64 encoding table
-var b64 = new Array(64);
-
-// Base64 decoding table
-var s64 = new Array(123);
-
-// 65..90, 97..122, 48..57, 43, 47
-for (var i = 0; i < 64;)
-    s64[b64[i] = i < 26 ? i + 65 : i < 52 ? i + 71 : i < 62 ? i - 4 : i - 59 | 43] = i++;
-
-/**
- * Encodes a buffer to a base64 encoded string.
- * @param {Uint8Array} buffer Source buffer
- * @param {number} start Source start
- * @param {number} end Source end
- * @returns {string} Base64 encoded string
- */
-base64.encode = function encode(buffer, start, end) {
-    var parts = null,
-        chunk = [];
-    var i = 0, // output index
-        j = 0, // goto index
-        t;     // temporary
-    while (start < end) {
-        var b = buffer[start++];
-        switch (j) {
-            case 0:
-                chunk[i++] = b64[b >> 2];
-                t = (b & 3) << 4;
-                j = 1;
-                break;
-            case 1:
-                chunk[i++] = b64[t | b >> 4];
-                t = (b & 15) << 2;
-                j = 2;
-                break;
-            case 2:
-                chunk[i++] = b64[t | b >> 6];
-                chunk[i++] = b64[b & 63];
-                j = 0;
-                break;
-        }
-        if (i > 8191) {
-            (parts || (parts = [])).push(String.fromCharCode.apply(String, chunk));
-            i = 0;
-        }
-    }
-    if (j) {
-        chunk[i++] = b64[t];
-        chunk[i++] = 61;
-        if (j === 1)
-            chunk[i++] = 61;
-    }
-    if (parts) {
-        if (i)
-            parts.push(String.fromCharCode.apply(String, chunk.slice(0, i)));
-        return parts.join("");
-    }
-    return String.fromCharCode.apply(String, chunk.slice(0, i));
-};
-
-var invalidEncoding = "invalid encoding";
-
-/**
- * Decodes a base64 encoded string to a buffer.
- * @param {string} string Source string
- * @param {Uint8Array} buffer Destination buffer
- * @param {number} offset Destination offset
- * @returns {number} Number of bytes written
- * @throws {Error} If encoding is invalid
- */
-base64.decode = function decode(string, buffer, offset) {
-    var start = offset;
-    var j = 0, // goto index
-        t;     // temporary
-    for (var i = 0; i < string.length;) {
-        var c = string.charCodeAt(i++);
-        if (c === 61 && j > 1)
-            break;
-        if ((c = s64[c]) === undefined)
-            throw Error(invalidEncoding);
-        switch (j) {
-            case 0:
-                t = c;
-                j = 1;
-                break;
-            case 1:
-                buffer[offset++] = t << 2 | (c & 48) >> 4;
-                t = c;
-                j = 2;
-                break;
-            case 2:
-                buffer[offset++] = (t & 15) << 4 | (c & 60) >> 2;
-                t = c;
-                j = 3;
-                break;
-            case 3:
-                buffer[offset++] = (t & 3) << 6 | c;
-                j = 0;
-                break;
-        }
-    }
-    if (j === 1)
-        throw Error(invalidEncoding);
-    return offset - start;
-};
-
-/**
- * Tests if the specified string appears to be base64 encoded.
- * @param {string} string String to test
- * @returns {boolean} `true` if probably base64 encoded, otherwise false
- */
-base64.test = function test(string) {
-    return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(string);
-};
-
-},{}],3:[function(require,module,exports){
-"use strict";
-module.exports = codegen;
-
-/**
- * Begins generating a function.
- * @memberof util
- * @param {string[]} functionParams Function parameter names
- * @param {string} [functionName] Function name if not anonymous
- * @returns {Codegen} Appender that appends code to the function's body
- */
-function codegen(functionParams, functionName) {
-
-    /* istanbul ignore if */
-    if (typeof functionParams === "string") {
-        functionName = functionParams;
-        functionParams = undefined;
-    }
-
-    var body = [];
-
-    /**
-     * Appends code to the function's body or finishes generation.
-     * @typedef Codegen
-     * @type {function}
-     * @param {string|Object.<string,*>} [formatStringOrScope] Format string or, to finish the function, an object of additional scope variables, if any
-     * @param {...*} [formatParams] Format parameters
-     * @returns {Codegen|Function} Itself or the generated function if finished
-     * @throws {Error} If format parameter counts do not match
-     */
-
-    function Codegen(formatStringOrScope) {
-        // note that explicit array handling below makes this ~50% faster
-
-        // finish the function
-        if (typeof formatStringOrScope !== "string") {
-            var source = toString();
-            if (codegen.verbose)
-                console.log("codegen: " + source); // eslint-disable-line no-console
-            source = "return " + source;
-            if (formatStringOrScope) {
-                var scopeKeys   = Object.keys(formatStringOrScope),
-                    scopeParams = new Array(scopeKeys.length + 1),
-                    scopeValues = new Array(scopeKeys.length),
-                    scopeOffset = 0;
-                while (scopeOffset < scopeKeys.length) {
-                    scopeParams[scopeOffset] = scopeKeys[scopeOffset];
-                    scopeValues[scopeOffset] = formatStringOrScope[scopeKeys[scopeOffset++]];
-                }
-                scopeParams[scopeOffset] = source;
-                return Function.apply(null, scopeParams).apply(null, scopeValues); // eslint-disable-line no-new-func
-            }
-            return Function(source)(); // eslint-disable-line no-new-func
-        }
-
-        // otherwise append to body
-        var formatParams = new Array(arguments.length - 1),
-            formatOffset = 0;
-        while (formatOffset < formatParams.length)
-            formatParams[formatOffset] = arguments[++formatOffset];
-        formatOffset = 0;
-        formatStringOrScope = formatStringOrScope.replace(/%([%dfijs])/g, function replace($0, $1) {
-            var value = formatParams[formatOffset++];
-            switch ($1) {
-                case "d": case "f": return String(Number(value));
-                case "i": return String(Math.floor(value));
-                case "j": return JSON.stringify(value);
-                case "s": return String(value);
-            }
-            return "%";
-        });
-        if (formatOffset !== formatParams.length)
-            throw Error("parameter count mismatch");
-        body.push(formatStringOrScope);
-        return Codegen;
-    }
-
-    function toString(functionNameOverride) {
-        return "function " + (functionNameOverride || functionName || "") + "(" + (functionParams && functionParams.join(",") || "") + "){\n  " + body.join("\n  ") + "\n}";
-    }
-
-    Codegen.toString = toString;
-    return Codegen;
-}
-
-/**
- * Begins generating a function.
- * @memberof util
- * @function codegen
- * @param {string} [functionName] Function name if not anonymous
- * @returns {Codegen} Appender that appends code to the function's body
- * @variation 2
- */
-
-/**
- * When set to `true`, codegen will log generated code to console. Useful for debugging.
- * @name util.codegen.verbose
- * @type {boolean}
- */
-codegen.verbose = false;
-
-},{}],4:[function(require,module,exports){
-"use strict";
-module.exports = EventEmitter;
-
-/**
- * Constructs a new event emitter instance.
- * @classdesc A minimal event emitter.
- * @memberof util
- * @constructor
- */
-function EventEmitter() {
-
-    /**
-     * Registered listeners.
-     * @type {Object.<string,*>}
-     * @private
-     */
-    this._listeners = {};
-}
-
-/**
- * Registers an event listener.
- * @param {string} evt Event name
- * @param {function} fn Listener
- * @param {*} [ctx] Listener context
- * @returns {util.EventEmitter} `this`
- */
-EventEmitter.prototype.on = function on(evt, fn, ctx) {
-    (this._listeners[evt] || (this._listeners[evt] = [])).push({
-        fn  : fn,
-        ctx : ctx || this
-    });
-    return this;
-};
-
-/**
- * Removes an event listener or any matching listeners if arguments are omitted.
- * @param {string} [evt] Event name. Removes all listeners if omitted.
- * @param {function} [fn] Listener to remove. Removes all listeners of `evt` if omitted.
- * @returns {util.EventEmitter} `this`
- */
-EventEmitter.prototype.off = function off(evt, fn) {
-    if (evt === undefined)
-        this._listeners = {};
-    else {
-        if (fn === undefined)
-            this._listeners[evt] = [];
-        else {
-            var listeners = this._listeners[evt];
-            for (var i = 0; i < listeners.length;)
-                if (listeners[i].fn === fn)
-                    listeners.splice(i, 1);
-                else
-                    ++i;
-        }
-    }
-    return this;
-};
-
-/**
- * Emits an event by calling its listeners with the specified arguments.
- * @param {string} evt Event name
- * @param {...*} args Arguments
- * @returns {util.EventEmitter} `this`
- */
-EventEmitter.prototype.emit = function emit(evt) {
-    var listeners = this._listeners[evt];
-    if (listeners) {
-        var args = [],
-            i = 1;
-        for (; i < arguments.length;)
-            args.push(arguments[i++]);
-        for (i = 0; i < listeners.length;)
-            listeners[i].fn.apply(listeners[i++].ctx, args);
-    }
-    return this;
-};
-
-},{}],5:[function(require,module,exports){
-"use strict";
-module.exports = fetch;
-
-var asPromise = require(1),
-    inquire   = require(7);
-
-var fs = inquire("fs");
-
-/**
- * Node-style callback as used by {@link util.fetch}.
- * @typedef FetchCallback
- * @type {function}
- * @param {?Error} error Error, if any, otherwise `null`
- * @param {string} [contents] File contents, if there hasn't been an error
- * @returns {undefined}
- */
-
-/**
- * Options as used by {@link util.fetch}.
- * @typedef FetchOptions
- * @type {Object}
- * @property {boolean} [binary=false] Whether expecting a binary response
- * @property {boolean} [xhr=false] If `true`, forces the use of XMLHttpRequest
- */
-
-/**
- * Fetches the contents of a file.
- * @memberof util
- * @param {string} filename File path or url
- * @param {FetchOptions} options Fetch options
- * @param {FetchCallback} callback Callback function
- * @returns {undefined}
- */
-function fetch(filename, options, callback) {
-    if (typeof options === "function") {
-        callback = options;
-        options = {};
-    } else if (!options)
-        options = {};
-
-    if (!callback)
-        return asPromise(fetch, this, filename, options); // eslint-disable-line no-invalid-this
-
-    // if a node-like filesystem is present, try it first but fall back to XHR if nothing is found.
-    if (!options.xhr && fs && fs.readFile)
-        return fs.readFile(filename, function fetchReadFileCallback(err, contents) {
-            return err && typeof XMLHttpRequest !== "undefined"
-                ? fetch.xhr(filename, options, callback)
-                : err
-                ? callback(err)
-                : callback(null, options.binary ? contents : contents.toString("utf8"));
-        });
-
-    // use the XHR version otherwise.
-    return fetch.xhr(filename, options, callback);
-}
-
-/**
- * Fetches the contents of a file.
- * @name util.fetch
- * @function
- * @param {string} path File path or url
- * @param {FetchCallback} callback Callback function
- * @returns {undefined}
- * @variation 2
- */
-
-/**
- * Fetches the contents of a file.
- * @name util.fetch
- * @function
- * @param {string} path File path or url
- * @param {FetchOptions} [options] Fetch options
- * @returns {Promise<string|Uint8Array>} Promise
- * @variation 3
- */
-
-/**/
-fetch.xhr = function fetch_xhr(filename, options, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange /* works everywhere */ = function fetchOnReadyStateChange() {
-
-        if (xhr.readyState !== 4)
-            return undefined;
-
-        // local cors security errors return status 0 / empty string, too. afaik this cannot be
-        // reliably distinguished from an actually empty file for security reasons. feel free
-        // to send a pull request if you are aware of a solution.
-        if (xhr.status !== 0 && xhr.status !== 200)
-            return callback(Error("status " + xhr.status));
-
-        // if binary data is expected, make sure that some sort of array is returned, even if
-        // ArrayBuffers are not supported. the binary string fallback, however, is unsafe.
-        if (options.binary) {
-            var buffer = xhr.response;
-            if (!buffer) {
-                buffer = [];
-                for (var i = 0; i < xhr.responseText.length; ++i)
-                    buffer.push(xhr.responseText.charCodeAt(i) & 255);
-            }
-            return callback(null, typeof Uint8Array !== "undefined" ? new Uint8Array(buffer) : buffer);
-        }
-        return callback(null, xhr.responseText);
-    };
-
-    if (options.binary) {
-        // ref: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Sending_and_Receiving_Binary_Data#Receiving_binary_data_in_older_browsers
-        if ("overrideMimeType" in xhr)
-            xhr.overrideMimeType("text/plain; charset=x-user-defined");
-        xhr.responseType = "arraybuffer";
-    }
-
-    xhr.open("GET", filename);
-    xhr.send();
-};
-
-},{"1":1,"7":7}],6:[function(require,module,exports){
-"use strict";
-
-module.exports = factory(factory);
-
-/**
- * Reads / writes floats / doubles from / to buffers.
- * @name util.float
- * @namespace
- */
-
-/**
- * Writes a 32 bit float to a buffer using little endian byte order.
- * @name util.float.writeFloatLE
- * @function
- * @param {number} val Value to write
- * @param {Uint8Array} buf Target buffer
- * @param {number} pos Target buffer offset
- * @returns {undefined}
- */
-
-/**
- * Writes a 32 bit float to a buffer using big endian byte order.
- * @name util.float.writeFloatBE
- * @function
- * @param {number} val Value to write
- * @param {Uint8Array} buf Target buffer
- * @param {number} pos Target buffer offset
- * @returns {undefined}
- */
-
-/**
- * Reads a 32 bit float from a buffer using little endian byte order.
- * @name util.float.readFloatLE
- * @function
- * @param {Uint8Array} buf Source buffer
- * @param {number} pos Source buffer offset
- * @returns {number} Value read
- */
-
-/**
- * Reads a 32 bit float from a buffer using big endian byte order.
- * @name util.float.readFloatBE
- * @function
- * @param {Uint8Array} buf Source buffer
- * @param {number} pos Source buffer offset
- * @returns {number} Value read
- */
-
-/**
- * Writes a 64 bit double to a buffer using little endian byte order.
- * @name util.float.writeDoubleLE
- * @function
- * @param {number} val Value to write
- * @param {Uint8Array} buf Target buffer
- * @param {number} pos Target buffer offset
- * @returns {undefined}
- */
-
-/**
- * Writes a 64 bit double to a buffer using big endian byte order.
- * @name util.float.writeDoubleBE
- * @function
- * @param {number} val Value to write
- * @param {Uint8Array} buf Target buffer
- * @param {number} pos Target buffer offset
- * @returns {undefined}
- */
-
-/**
- * Reads a 64 bit double from a buffer using little endian byte order.
- * @name util.float.readDoubleLE
- * @function
- * @param {Uint8Array} buf Source buffer
- * @param {number} pos Source buffer offset
- * @returns {number} Value read
- */
-
-/**
- * Reads a 64 bit double from a buffer using big endian byte order.
- * @name util.float.readDoubleBE
- * @function
- * @param {Uint8Array} buf Source buffer
- * @param {number} pos Source buffer offset
- * @returns {number} Value read
- */
-
-// Factory function for the purpose of node-based testing in modified global environments
-function factory(exports) {
-
-    // float: typed array
-    if (typeof Float32Array !== "undefined") (function() {
-
-        var f32 = new Float32Array([ -0 ]),
-            f8b = new Uint8Array(f32.buffer),
-            le  = f8b[3] === 128;
-
-        function writeFloat_f32_cpy(val, buf, pos) {
-            f32[0] = val;
-            buf[pos    ] = f8b[0];
-            buf[pos + 1] = f8b[1];
-            buf[pos + 2] = f8b[2];
-            buf[pos + 3] = f8b[3];
-        }
-
-        function writeFloat_f32_rev(val, buf, pos) {
-            f32[0] = val;
-            buf[pos    ] = f8b[3];
-            buf[pos + 1] = f8b[2];
-            buf[pos + 2] = f8b[1];
-            buf[pos + 3] = f8b[0];
-        }
-
-        /* istanbul ignore next */
-        exports.writeFloatLE = le ? writeFloat_f32_cpy : writeFloat_f32_rev;
-        /* istanbul ignore next */
-        exports.writeFloatBE = le ? writeFloat_f32_rev : writeFloat_f32_cpy;
-
-        function readFloat_f32_cpy(buf, pos) {
-            f8b[0] = buf[pos    ];
-            f8b[1] = buf[pos + 1];
-            f8b[2] = buf[pos + 2];
-            f8b[3] = buf[pos + 3];
-            return f32[0];
-        }
-
-        function readFloat_f32_rev(buf, pos) {
-            f8b[3] = buf[pos    ];
-            f8b[2] = buf[pos + 1];
-            f8b[1] = buf[pos + 2];
-            f8b[0] = buf[pos + 3];
-            return f32[0];
-        }
-
-        /* istanbul ignore next */
-        exports.readFloatLE = le ? readFloat_f32_cpy : readFloat_f32_rev;
-        /* istanbul ignore next */
-        exports.readFloatBE = le ? readFloat_f32_rev : readFloat_f32_cpy;
-
-    // float: ieee754
-    })(); else (function() {
-
-        function writeFloat_ieee754(writeUint, val, buf, pos) {
-            var sign = val < 0 ? 1 : 0;
-            if (sign)
-                val = -val;
-            if (val === 0)
-                writeUint(1 / val > 0 ? /* positive */ 0 : /* negative 0 */ 2147483648, buf, pos);
-            else if (isNaN(val))
-                writeUint(2143289344, buf, pos);
-            else if (val > 3.4028234663852886e+38) // +-Infinity
-                writeUint((sign << 31 | 2139095040) >>> 0, buf, pos);
-            else if (val < 1.1754943508222875e-38) // denormal
-                writeUint((sign << 31 | Math.round(val / 1.401298464324817e-45)) >>> 0, buf, pos);
-            else {
-                var exponent = Math.floor(Math.log(val) / Math.LN2),
-                    mantissa = Math.round(val * Math.pow(2, -exponent) * 8388608) & 8388607;
-                writeUint((sign << 31 | exponent + 127 << 23 | mantissa) >>> 0, buf, pos);
-            }
-        }
-
-        exports.writeFloatLE = writeFloat_ieee754.bind(null, writeUintLE);
-        exports.writeFloatBE = writeFloat_ieee754.bind(null, writeUintBE);
-
-        function readFloat_ieee754(readUint, buf, pos) {
-            var uint = readUint(buf, pos),
-                sign = (uint >> 31) * 2 + 1,
-                exponent = uint >>> 23 & 255,
-                mantissa = uint & 8388607;
-            return exponent === 255
-                ? mantissa
-                ? NaN
-                : sign * Infinity
-                : exponent === 0 // denormal
-                ? sign * 1.401298464324817e-45 * mantissa
-                : sign * Math.pow(2, exponent - 150) * (mantissa + 8388608);
-        }
-
-        exports.readFloatLE = readFloat_ieee754.bind(null, readUintLE);
-        exports.readFloatBE = readFloat_ieee754.bind(null, readUintBE);
-
-    })();
-
-    // double: typed array
-    if (typeof Float64Array !== "undefined") (function() {
-
-        var f64 = new Float64Array([-0]),
-            f8b = new Uint8Array(f64.buffer),
-            le  = f8b[7] === 128;
-
-        function writeDouble_f64_cpy(val, buf, pos) {
-            f64[0] = val;
-            buf[pos    ] = f8b[0];
-            buf[pos + 1] = f8b[1];
-            buf[pos + 2] = f8b[2];
-            buf[pos + 3] = f8b[3];
-            buf[pos + 4] = f8b[4];
-            buf[pos + 5] = f8b[5];
-            buf[pos + 6] = f8b[6];
-            buf[pos + 7] = f8b[7];
-        }
-
-        function writeDouble_f64_rev(val, buf, pos) {
-            f64[0] = val;
-            buf[pos    ] = f8b[7];
-            buf[pos + 1] = f8b[6];
-            buf[pos + 2] = f8b[5];
-            buf[pos + 3] = f8b[4];
-            buf[pos + 4] = f8b[3];
-            buf[pos + 5] = f8b[2];
-            buf[pos + 6] = f8b[1];
-            buf[pos + 7] = f8b[0];
-        }
-
-        /* istanbul ignore next */
-        exports.writeDoubleLE = le ? writeDouble_f64_cpy : writeDouble_f64_rev;
-        /* istanbul ignore next */
-        exports.writeDoubleBE = le ? writeDouble_f64_rev : writeDouble_f64_cpy;
-
-        function readDouble_f64_cpy(buf, pos) {
-            f8b[0] = buf[pos    ];
-            f8b[1] = buf[pos + 1];
-            f8b[2] = buf[pos + 2];
-            f8b[3] = buf[pos + 3];
-            f8b[4] = buf[pos + 4];
-            f8b[5] = buf[pos + 5];
-            f8b[6] = buf[pos + 6];
-            f8b[7] = buf[pos + 7];
-            return f64[0];
-        }
-
-        function readDouble_f64_rev(buf, pos) {
-            f8b[7] = buf[pos    ];
-            f8b[6] = buf[pos + 1];
-            f8b[5] = buf[pos + 2];
-            f8b[4] = buf[pos + 3];
-            f8b[3] = buf[pos + 4];
-            f8b[2] = buf[pos + 5];
-            f8b[1] = buf[pos + 6];
-            f8b[0] = buf[pos + 7];
-            return f64[0];
-        }
-
-        /* istanbul ignore next */
-        exports.readDoubleLE = le ? readDouble_f64_cpy : readDouble_f64_rev;
-        /* istanbul ignore next */
-        exports.readDoubleBE = le ? readDouble_f64_rev : readDouble_f64_cpy;
-
-    // double: ieee754
-    })(); else (function() {
-
-        function writeDouble_ieee754(writeUint, off0, off1, val, buf, pos) {
-            var sign = val < 0 ? 1 : 0;
-            if (sign)
-                val = -val;
-            if (val === 0) {
-                writeUint(0, buf, pos + off0);
-                writeUint(1 / val > 0 ? /* positive */ 0 : /* negative 0 */ 2147483648, buf, pos + off1);
-            } else if (isNaN(val)) {
-                writeUint(0, buf, pos + off0);
-                writeUint(2146959360, buf, pos + off1);
-            } else if (val > 1.7976931348623157e+308) { // +-Infinity
-                writeUint(0, buf, pos + off0);
-                writeUint((sign << 31 | 2146435072) >>> 0, buf, pos + off1);
-            } else {
-                var mantissa;
-                if (val < 2.2250738585072014e-308) { // denormal
-                    mantissa = val / 5e-324;
-                    writeUint(mantissa >>> 0, buf, pos + off0);
-                    writeUint((sign << 31 | mantissa / 4294967296) >>> 0, buf, pos + off1);
-                } else {
-                    var exponent = Math.floor(Math.log(val) / Math.LN2);
-                    if (exponent === 1024)
-                        exponent = 1023;
-                    mantissa = val * Math.pow(2, -exponent);
-                    writeUint(mantissa * 4503599627370496 >>> 0, buf, pos + off0);
-                    writeUint((sign << 31 | exponent + 1023 << 20 | mantissa * 1048576 & 1048575) >>> 0, buf, pos + off1);
-                }
-            }
-        }
-
-        exports.writeDoubleLE = writeDouble_ieee754.bind(null, writeUintLE, 0, 4);
-        exports.writeDoubleBE = writeDouble_ieee754.bind(null, writeUintBE, 4, 0);
-
-        function readDouble_ieee754(readUint, off0, off1, buf, pos) {
-            var lo = readUint(buf, pos + off0),
-                hi = readUint(buf, pos + off1);
-            var sign = (hi >> 31) * 2 + 1,
-                exponent = hi >>> 20 & 2047,
-                mantissa = 4294967296 * (hi & 1048575) + lo;
-            return exponent === 2047
-                ? mantissa
-                ? NaN
-                : sign * Infinity
-                : exponent === 0 // denormal
-                ? sign * 5e-324 * mantissa
-                : sign * Math.pow(2, exponent - 1075) * (mantissa + 4503599627370496);
-        }
-
-        exports.readDoubleLE = readDouble_ieee754.bind(null, readUintLE, 0, 4);
-        exports.readDoubleBE = readDouble_ieee754.bind(null, readUintBE, 4, 0);
-
-    })();
-
-    return exports;
-}
-
-// uint helpers
-
-function writeUintLE(val, buf, pos) {
-    buf[pos    ] =  val        & 255;
-    buf[pos + 1] =  val >>> 8  & 255;
-    buf[pos + 2] =  val >>> 16 & 255;
-    buf[pos + 3] =  val >>> 24;
-}
-
-function writeUintBE(val, buf, pos) {
-    buf[pos    ] =  val >>> 24;
-    buf[pos + 1] =  val >>> 16 & 255;
-    buf[pos + 2] =  val >>> 8  & 255;
-    buf[pos + 3] =  val        & 255;
-}
-
-function readUintLE(buf, pos) {
-    return (buf[pos    ]
-          | buf[pos + 1] << 8
-          | buf[pos + 2] << 16
-          | buf[pos + 3] << 24) >>> 0;
-}
-
-function readUintBE(buf, pos) {
-    return (buf[pos    ] << 24
-          | buf[pos + 1] << 16
-          | buf[pos + 2] << 8
-          | buf[pos + 3]) >>> 0;
-}
-
-},{}],7:[function(require,module,exports){
-"use strict";
-module.exports = inquire;
-
-/**
- * Requires a module only if available.
- * @memberof util
- * @param {string} moduleName Module to require
- * @returns {?Object} Required module if available and not empty, otherwise `null`
- */
-function inquire(moduleName) {
-    try {
-        var mod = eval("quire".replace(/^/,"re"))(moduleName); // eslint-disable-line no-eval
-        if (mod && (mod.length || Object.keys(mod).length))
-            return mod;
-    } catch (e) {} // eslint-disable-line no-empty
-    return null;
-}
-
-},{}],8:[function(require,module,exports){
-"use strict";
-
-/**
- * A minimal path module to resolve Unix, Windows and URL paths alike.
- * @memberof util
- * @namespace
- */
-var path = exports;
-
-var isAbsolute =
-/**
- * Tests if the specified path is absolute.
- * @param {string} path Path to test
- * @returns {boolean} `true` if path is absolute
- */
-path.isAbsolute = function isAbsolute(path) {
-    return /^(?:\/|\w+:)/.test(path);
-};
-
-var normalize =
-/**
- * Normalizes the specified path.
- * @param {string} path Path to normalize
- * @returns {string} Normalized path
- */
-path.normalize = function normalize(path) {
-    path = path.replace(/\\/g, "/")
-               .replace(/\/{2,}/g, "/");
-    var parts    = path.split("/"),
-        absolute = isAbsolute(path),
-        prefix   = "";
-    if (absolute)
-        prefix = parts.shift() + "/";
-    for (var i = 0; i < parts.length;) {
-        if (parts[i] === "..") {
-            if (i > 0 && parts[i - 1] !== "..")
-                parts.splice(--i, 2);
-            else if (absolute)
-                parts.splice(i, 1);
-            else
-                ++i;
-        } else if (parts[i] === ".")
-            parts.splice(i, 1);
-        else
-            ++i;
-    }
-    return prefix + parts.join("/");
-};
-
-/**
- * Resolves the specified include path against the specified origin path.
- * @param {string} originPath Path to the origin file
- * @param {string} includePath Include path relative to origin path
- * @param {boolean} [alreadyNormalized=false] `true` if both paths are already known to be normalized
- * @returns {string} Path to the include file
- */
-path.resolve = function resolve(originPath, includePath, alreadyNormalized) {
-    if (!alreadyNormalized)
-        includePath = normalize(includePath);
-    if (isAbsolute(includePath))
-        return includePath;
-    if (!alreadyNormalized)
-        originPath = normalize(originPath);
-    return (originPath = originPath.replace(/(?:\/|^)[^/]+$/, "")).length ? normalize(originPath + "/" + includePath) : includePath;
-};
-
-},{}],9:[function(require,module,exports){
-"use strict";
-module.exports = pool;
-
-/**
- * An allocator as used by {@link util.pool}.
- * @typedef PoolAllocator
- * @type {function}
- * @param {number} size Buffer size
- * @returns {Uint8Array} Buffer
- */
-
-/**
- * A slicer as used by {@link util.pool}.
- * @typedef PoolSlicer
- * @type {function}
- * @param {number} start Start offset
- * @param {number} end End offset
- * @returns {Uint8Array} Buffer slice
- * @this {Uint8Array}
- */
-
-/**
- * A general purpose buffer pool.
- * @memberof util
- * @function
- * @param {PoolAllocator} alloc Allocator
- * @param {PoolSlicer} slice Slicer
- * @param {number} [size=8192] Slab size
- * @returns {PoolAllocator} Pooled allocator
- */
-function pool(alloc, slice, size) {
-    var SIZE   = size || 8192;
-    var MAX    = SIZE >>> 1;
-    var slab   = null;
-    var offset = SIZE;
-    return function pool_alloc(size) {
-        if (size < 1 || size > MAX)
-            return alloc(size);
-        if (offset + size > SIZE) {
-            slab = alloc(SIZE);
-            offset = 0;
-        }
-        var buf = slice.call(slab, offset, offset += size);
-        if (offset & 7) // align to 32 bit
-            offset = (offset | 7) + 1;
-        return buf;
-    };
-}
-
-},{}],10:[function(require,module,exports){
-"use strict";
-
-/**
- * A minimal UTF8 implementation for number arrays.
- * @memberof util
- * @namespace
- */
-var utf8 = exports;
-
-/**
- * Calculates the UTF8 byte length of a string.
- * @param {string} string String
- * @returns {number} Byte length
- */
-utf8.length = function utf8_length(string) {
-    var len = 0,
-        c = 0;
-    for (var i = 0; i < string.length; ++i) {
-        c = string.charCodeAt(i);
-        if (c < 128)
-            len += 1;
-        else if (c < 2048)
-            len += 2;
-        else if ((c & 0xFC00) === 0xD800 && (string.charCodeAt(i + 1) & 0xFC00) === 0xDC00) {
-            ++i;
-            len += 4;
-        } else
-            len += 3;
-    }
-    return len;
-};
-
-/**
- * Reads UTF8 bytes as a string.
- * @param {Uint8Array} buffer Source buffer
- * @param {number} start Source start
- * @param {number} end Source end
- * @returns {string} String read
- */
-utf8.read = function utf8_read(buffer, start, end) {
-    var len = end - start;
-    if (len < 1)
-        return "";
-    var parts = null,
-        chunk = [],
-        i = 0, // char offset
-        t;     // temporary
-    while (start < end) {
-        t = buffer[start++];
-        if (t < 128)
-            chunk[i++] = t;
-        else if (t > 191 && t < 224)
-            chunk[i++] = (t & 31) << 6 | buffer[start++] & 63;
-        else if (t > 239 && t < 365) {
-            t = ((t & 7) << 18 | (buffer[start++] & 63) << 12 | (buffer[start++] & 63) << 6 | buffer[start++] & 63) - 0x10000;
-            chunk[i++] = 0xD800 + (t >> 10);
-            chunk[i++] = 0xDC00 + (t & 1023);
-        } else
-            chunk[i++] = (t & 15) << 12 | (buffer[start++] & 63) << 6 | buffer[start++] & 63;
-        if (i > 8191) {
-            (parts || (parts = [])).push(String.fromCharCode.apply(String, chunk));
-            i = 0;
-        }
-    }
-    if (parts) {
-        if (i)
-            parts.push(String.fromCharCode.apply(String, chunk.slice(0, i)));
-        return parts.join("");
-    }
-    return String.fromCharCode.apply(String, chunk.slice(0, i));
-};
-
-/**
- * Writes a string as UTF8 bytes.
- * @param {string} string Source string
- * @param {Uint8Array} buffer Destination buffer
- * @param {number} offset Destination offset
- * @returns {number} Bytes written
- */
-utf8.write = function utf8_write(string, buffer, offset) {
-    var start = offset,
-        c1, // character 1
-        c2; // character 2
-    for (var i = 0; i < string.length; ++i) {
-        c1 = string.charCodeAt(i);
-        if (c1 < 128) {
-            buffer[offset++] = c1;
-        } else if (c1 < 2048) {
-            buffer[offset++] = c1 >> 6       | 192;
-            buffer[offset++] = c1       & 63 | 128;
-        } else if ((c1 & 0xFC00) === 0xD800 && ((c2 = string.charCodeAt(i + 1)) & 0xFC00) === 0xDC00) {
-            c1 = 0x10000 + ((c1 & 0x03FF) << 10) + (c2 & 0x03FF);
-            ++i;
-            buffer[offset++] = c1 >> 18      | 240;
-            buffer[offset++] = c1 >> 12 & 63 | 128;
-            buffer[offset++] = c1 >> 6  & 63 | 128;
-            buffer[offset++] = c1       & 63 | 128;
-        } else {
-            buffer[offset++] = c1 >> 12      | 224;
-            buffer[offset++] = c1 >> 6  & 63 | 128;
-            buffer[offset++] = c1       & 63 | 128;
-        }
-    }
-    return offset - start;
-};
-
-},{}],11:[function(require,module,exports){
 "use strict";
 module.exports = common;
 
@@ -1474,9 +405,9 @@ common("field_mask", {
 
     /**
      * Properties of a google.protobuf.FieldMask message.
-     * @interface IDoubleValue
+     * @interface IFieldMask
      * @type {Object}
-     * @property {number} [value]
+     * @property {string[]} [paths]
      * @memberof common
      */
     FieldMask: {
@@ -1509,7 +440,7 @@ common.get = function get(file) {
     return common[file] || null;
 };
 
-},{}],12:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 "use strict";
 /**
  * Runtime message from/to plain object converters.
@@ -1517,8 +448,9 @@ common.get = function get(file) {
  */
 var converter = exports;
 
-var Enum = require(15),
-    util = require(37);
+var Enum  = require(6),
+    types = require(27),
+    util  = require(28);
 
 /**
  * Generates a partial value fromObject conveter.
@@ -1526,34 +458,38 @@ var Enum = require(15),
  * @param {Field} field Reflected field
  * @param {number} fieldIndex Field index
  * @param {string} prop Property reference
+ * @param {string} [dstProp] Repeated destination property reference
  * @returns {Codegen} Codegen instance
  * @ignore
  */
-function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
+function genValuePartial_fromObject(gen, field, fieldIndex, prop, dstProp) {
     /* eslint-disable no-unexpected-multiline, block-scoped-var, no-redeclare */
     if (field.resolvedType) {
-        if (field.resolvedType instanceof Enum) { gen
+        if (field.resolvedType instanceof Enum) {
+            var dst = dstProp
+                ? "m" + dstProp + "[m" + dstProp + ".length]"
+                : "m" + prop;
+            gen
             ("switch(d%s){", prop);
-            for (var values = field.resolvedType.values, keys = Object.keys(values), i = 0; i < keys.length; ++i) {
-                // enum unknown values passthrough
-                if (values[keys[i]] === field.typeDefault) { gen
-                    ("default:")
-                        ("if(typeof(d%s)===\"number\"){m%s=d%s;break}", prop, prop, prop);
-                    if (!field.repeated) gen // fallback to default value only for
-                                             // arrays, to avoid leaving holes.
-                        ("break");           // for non-repeated fields, just ignore
-                }
-                gen
+            for (var values = field.resolvedType.values, keys = Object.keys(values), i = 0; i < keys.length; ++i) { gen
                 ("case%j:", keys[i])
                 ("case %i:", values[keys[i]])
-                    ("m%s=%j", prop, values[keys[i]])
+                    ("%s=%j", dst, values[keys[i]])
                     ("break");
-            } gen
+            }
+            gen
+                ("default:");
+            if (field.resolvedType._features.enum_type !== "CLOSED") {
+                gen
+                    ("if(typeof d%s===\"number\"&&(d%s|0)===d%s)", prop, prop, prop)
+                        ("%s=d%s", dst, prop);
+            }
+            gen
             ("}");
         } else gen
-            ("if(typeof d%s!==\"object\")", prop)
+            ("if(!util.isObject(d%s))", prop)
                 ("throw TypeError(%j)", field.fullName + ": object expected")
-            ("m%s=types[%i].fromObject(d%s)", prop, fieldIndex, prop);
+            ("m%s=types[%i].fromObject(d%s,q+1)", prop, fieldIndex, prop);
     } else {
         var isUnsigned = false;
         switch (field.type) {
@@ -1571,14 +507,14 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
                 ("m%s=d%s|0", prop, prop);
                 break;
             case "uint64":
+            case "fixed64":
                 isUnsigned = true;
-                // eslint-disable-line no-fallthrough
+                // eslint-disable-next-line no-fallthrough
             case "int64":
             case "sint64":
-            case "fixed64":
             case "sfixed64": gen
                 ("if(util.Long)")
-                    ("(m%s=util.Long.fromValue(d%s)).unsigned=%j", prop, prop, isUnsigned)
+                    ("m%s=util.Long.fromValue(d%s,%j)", prop, prop, isUnsigned)
                 ("else if(typeof d%s===\"string\")", prop)
                     ("m%s=parseInt(d%s,10)", prop, prop)
                 ("else if(typeof d%s===\"number\")", prop)
@@ -1589,7 +525,7 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
             case "bytes": gen
                 ("if(typeof d%s===\"string\")", prop)
                     ("util.base64.decode(d%s,m%s=util.newBuffer(util.base64.length(d%s)),0)", prop, prop, prop)
-                ("else if(d%s.length >= 0)", prop)
+                ("else if(d%s.length>=0)", prop)
                     ("m%s=d%s", prop, prop);
                 break;
             case "string": gen
@@ -1615,24 +551,34 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
 converter.fromObject = function fromObject(mtype) {
     /* eslint-disable no-unexpected-multiline, block-scoped-var, no-redeclare */
     var fields = mtype.fieldsArray;
-    var gen = util.codegen(["d"], mtype.name + "$fromObject")
-    ("if(d instanceof this.ctor)")
-        ("return d");
+    var gen = util.codegen(["d", "q"])
+    ("if(d instanceof C)")
+        ("return d")
+    ("if(!util.isObject(d))")
+        ("throw TypeError(%j)", mtype.fullName + ": object expected")
+    ("if(q===undefined)q=0")
+    ("if(q>util.recursionLimit)")
+        ("throw Error(\"max depth exceeded\")");
     if (!fields.length) return gen
-    ("return new this.ctor");
+    ("return new C");
     gen
-    ("var m=new this.ctor");
+    ("var m=new C");
     for (var i = 0; i < fields.length; ++i) {
         var field  = fields[i].resolve(),
-            prop   = util.safeProp(field.name);
+            prop   = util.safeProp(field.name),
+            implicitPresence = !field.hasPresence && !field.repeated && !field.map
+                && (field.resolvedType instanceof Enum || types.basic[field.type] !== undefined);
 
         // Map fields
         if (field.map) { gen
     ("if(d%s){", prop)
-        ("if(typeof d%s!==\"object\")", prop)
+        ("if(!util.isObject(d%s))", prop)
             ("throw TypeError(%j)", field.fullName + ": object expected")
         ("m%s={}", prop)
         ("for(var ks=Object.keys(d%s),i=0;i<ks.length;++i){", prop);
+            gen
+        ("if(ks[i]===\"__proto__\")")
+            ("util.makeProp(m%s,ks[i])", prop);
             genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[ks[i]]")
         ("}")
     ("}");
@@ -1641,10 +587,14 @@ converter.fromObject = function fromObject(mtype) {
         } else if (field.repeated) { gen
     ("if(d%s){", prop)
         ("if(!Array.isArray(d%s))", prop)
-            ("throw TypeError(%j)", field.fullName + ": array expected")
-        ("m%s=[]", prop)
+            ("throw TypeError(%j)", field.fullName + ": array expected");
+            if (field.resolvedType instanceof Enum) gen
+        ("m%s=[]", prop);
+            else gen
+        ("m%s=Array(d%s.length)", prop, prop);
+            gen
         ("for(var i=0;i<d%s.length;++i){", prop);
-            genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[i]")
+            genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[i]", field.resolvedType instanceof Enum ? prop : undefined)
         ("}")
     ("}");
 
@@ -1652,7 +602,25 @@ converter.fromObject = function fromObject(mtype) {
         } else {
             if (!(field.resolvedType instanceof Enum)) gen // no need to test for null/undefined if an enum (uses switch)
     ("if(d%s!=null){", prop); // !== undefined && !== null
+            if (implicitPresence) {
+                if (field.resolvedType instanceof Enum) gen
+    ("if(d%s!==%j&&(typeof d%s!==\"string\"||types[%i].values[d%s]!==%j)){", prop, field.typeDefault, prop, i, prop, field.typeDefault);
+                else if (field.type === "string") gen
+    ("if(typeof d%s!==\"string\"||d%s.length){", prop, prop);
+                else if (field.type === "bytes") gen
+    ("if(d%s.length){", prop);
+                else if (field.type === "bool") gen
+    ("if(d%s){", prop);
+                else if (field.type === "double" || field.type === "float") gen
+    ("if(!Object.is(Number(d%s),0)){", prop);
+                else if (types.long[field.type] !== undefined) gen
+    ("if(typeof d%s===\"object\"?d%s.low||d%s.high:Number(d%s)!==0){", prop, prop, prop, prop);
+                else gen
+    ("if(Number(d%s)!==0){", prop);
+            }
         genValuePartial_fromObject(gen, field, /* not sorted */ i, prop);
+            if (implicitPresence) gen
+    ("}");
             if (!(field.resolvedType instanceof Enum)) gen
     ("}");
         }
@@ -1666,41 +634,46 @@ converter.fromObject = function fromObject(mtype) {
  * @param {Codegen} gen Codegen instance
  * @param {Field} field Reflected field
  * @param {number} fieldIndex Field index
- * @param {string} prop Property reference
+ * @param {string} dstProp Destination property reference
+ * @param {string} [srcProp] Source property reference
  * @returns {Codegen} Codegen instance
  * @ignore
  */
-function genValuePartial_toObject(gen, field, fieldIndex, prop) {
+function genValuePartial_toObject(gen, field, fieldIndex, dstProp, srcProp) {
     /* eslint-disable no-unexpected-multiline, block-scoped-var, no-redeclare */
+    if (!srcProp)
+        srcProp = dstProp;
     if (field.resolvedType) {
         if (field.resolvedType instanceof Enum) gen
-            ("d%s=o.enums===String?(types[%i].values[m%s]===undefined?m%s:types[%i].values[m%s]):m%s", prop, fieldIndex, prop, prop, fieldIndex, prop, prop);
+            ("d%s=o.enums===String?(types[%i].values[m%s]===undefined?m%s:types[%i].values[m%s]):m%s", dstProp, fieldIndex, srcProp, srcProp, fieldIndex, srcProp, srcProp);
         else gen
-            ("d%s=types[%i].toObject(m%s,o)", prop, fieldIndex, prop);
+            ("d%s=types[%i].toObject(m%s,o,q+1)", dstProp, fieldIndex, srcProp);
     } else {
         var isUnsigned = false;
         switch (field.type) {
             case "double":
             case "float": gen
-            ("d%s=o.json&&!isFinite(m%s)?String(m%s):m%s", prop, prop, prop, prop);
+            ("d%s=o.json&&!isFinite(m%s)?String(m%s):m%s", dstProp, srcProp, srcProp, srcProp);
                 break;
             case "uint64":
+            case "fixed64":
                 isUnsigned = true;
-                // eslint-disable-line no-fallthrough
+                // eslint-disable-next-line no-fallthrough
             case "int64":
             case "sint64":
-            case "fixed64":
             case "sfixed64": gen
-            ("if(typeof m%s===\"number\")", prop)
-                ("d%s=o.longs===String?String(m%s):m%s", prop, prop, prop)
+            ("if(typeof BigInt!==\"undefined\"&&o.longs===BigInt)")
+                ("d%s=typeof m%s===\"number\"?BigInt(m%s):util.Long.fromBits(m%s.low>>>0,m%s.high>>>0,%j).toBigInt()", dstProp, srcProp, srcProp, srcProp, srcProp, isUnsigned)
+            ("else if(typeof m%s===\"number\")", srcProp)
+                ("d%s=o.longs===String?String(m%s):m%s", dstProp, srcProp, srcProp)
             ("else") // Long-like
-                ("d%s=o.longs===String?util.Long.prototype.toString.call(m%s):o.longs===Number?new util.LongBits(m%s.low>>>0,m%s.high>>>0).toNumber(%s):m%s", prop, prop, prop, prop, isUnsigned ? "true": "", prop);
+                ("d%s=o.longs===String?util.Long.prototype.toString.call(m%s):o.longs===Number?new util.LongBits(m%s.low>>>0,m%s.high>>>0).toNumber(%s):m%s", dstProp, srcProp, srcProp, srcProp, isUnsigned ? "true": "", srcProp);
                 break;
             case "bytes": gen
-            ("d%s=o.bytes===String?util.base64.encode(m%s,0,m%s.length):o.bytes===Array?Array.prototype.slice.call(m%s):m%s", prop, prop, prop, prop, prop);
+            ("d%s=o.bytes===String?util.base64.encode(m%s,0,m%s.length):o.bytes===Array?Array.prototype.slice.call(m%s):m%s", dstProp, srcProp, srcProp, srcProp, srcProp);
                 break;
             default: gen
-            ("d%s=m%s", prop, prop);
+            ("d%s=m%s", dstProp, srcProp);
                 break;
         }
     }
@@ -1718,9 +691,12 @@ converter.toObject = function toObject(mtype) {
     var fields = mtype.fieldsArray.slice().sort(util.compareFieldsById);
     if (!fields.length)
         return util.codegen()("return {}");
-    var gen = util.codegen(["m", "o"], mtype.name + "$toObject")
+    var gen = util.codegen(["m", "o", "q"])
     ("if(!o)")
         ("o={}")
+    ("if(q===undefined)q=0")
+    ("if(q>util.recursionLimit)")
+        ("throw Error(\"max depth exceeded\")")
     ("var d={}");
 
     var repeatedFields = [],
@@ -1759,15 +735,15 @@ converter.toObject = function toObject(mtype) {
             else if (field.long) gen
         ("if(util.Long){")
             ("var n=new util.Long(%i,%i,%j)", field.typeDefault.low, field.typeDefault.high, field.typeDefault.unsigned)
-            ("d%s=o.longs===String?n.toString():o.longs===Number?n.toNumber():n", prop)
+            ("d%s=o.longs===String?n.toString():o.longs===Number?n.toNumber():typeof BigInt!==\"undefined\"&&o.longs===BigInt?n.toBigInt():n", prop)
         ("}else")
-            ("d%s=o.longs===String?%j:%i", prop, field.typeDefault.toString(), field.typeDefault.toNumber());
+            ("d%s=o.longs===String?%j:typeof BigInt!==\"undefined\"&&o.longs===BigInt?BigInt(%j):%i", prop, field.typeDefault.toString(), field.typeDefault.toString(), field.typeDefault.toNumber());
             else if (field.bytes) {
-                var arrayDefault = "[" + Array.prototype.slice.call(field.typeDefault).join(",") + "]";
+                var arrayDefault = Array.prototype.slice.call(field.typeDefault);
                 gen
         ("if(o.bytes===String)d%s=%j", prop, String.fromCharCode.apply(String, field.typeDefault))
         ("else{")
-            ("d%s=%s", prop, arrayDefault)
+            ("d%s=%j", prop, arrayDefault)
             ("if(o.bytes!==Array)d%s=util.newBuffer(d%s)", prop, prop)
         ("}");
             } else gen
@@ -1785,20 +761,28 @@ converter.toObject = function toObject(mtype) {
     ("var ks2");
             } gen
     ("if(m%s&&(ks2=Object.keys(m%s)).length){", prop, prop)
-        ("d%s={}", prop)
+        ("d%s={}", prop);
+            var longKey = types.long[field.keyType] !== undefined,
+                srcProp = prop + "[ks2[j]]";
+            gen
         ("for(var j=0;j<ks2.length;++j){");
-            genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[ks2[j]]")
+            if (longKey) gen
+            ("var k2=util.longFromKey(ks2[j],%j).toString()", field.keyType === "uint64" || field.keyType === "fixed64");
+            gen
+        ("if(ks2[j]===\"__proto__\")")
+            ("util.makeProp(d%s,ks2[j])", prop);
+            genValuePartial_toObject(gen, field, /* sorted */ index, longKey ? prop + "[k2]" : srcProp, srcProp)
         ("}");
         } else if (field.repeated) { gen
     ("if(m%s&&m%s.length){", prop, prop)
-        ("d%s=[]", prop)
+        ("d%s=Array(m%s.length)", prop, prop)
         ("for(var j=0;j<m%s.length;++j){", prop);
             genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[j]")
         ("}");
         } else { gen
-    ("if(m%s!=null&&m.hasOwnProperty(%j)){", prop, field.name); // !== undefined && !== null
+    ("if(m%s!=null&&Object.hasOwnProperty.call(m,%j)){", prop, field.name); // !== undefined && !== null
         genValuePartial_toObject(gen, field, /* sorted */ index, prop);
-        if (field.partOf) gen
+        if (field.partOf && !field.partOf.isProto3Optional) gen
         ("if(o.oneofs)")
             ("d%s=%j", util.safeProp(field.partOf.name), field.name);
         }
@@ -1810,16 +794,30 @@ converter.toObject = function toObject(mtype) {
     /* eslint-enable no-unexpected-multiline, block-scoped-var, no-redeclare */
 };
 
-},{"15":15,"37":37}],13:[function(require,module,exports){
+},{"27":27,"28":28,"6":6}],4:[function(require,module,exports){
 "use strict";
 module.exports = decoder;
 
-var Enum    = require(15),
-    types   = require(36),
-    util    = require(37);
+var Enum    = require(6),
+    types   = require(27),
+    util    = require(28);
 
 function missing(field) {
     return "missing required '" + field.name + "'";
+}
+
+function stringMethod(field) {
+    return field._features.utf8_validation === "VERIFY" ? "stringVerify" : "string";
+}
+
+function genPreserveUnknown(gen, ref) {
+    /* eslint-disable no-unexpected-multiline */
+    return gen
+        ("if(!r.discardUnknown){")
+            ("util.makeProp(m,\"$unknowns\",false);")
+            ("(m.$unknowns||(m.$unknowns=[])).push(%s)", ref)
+        ("}");
+    /* eslint-enable no-unexpected-multiline */
 }
 
 /**
@@ -1829,110 +827,249 @@ function missing(field) {
  */
 function decoder(mtype) {
     /* eslint-disable no-unexpected-multiline */
-    var gen = util.codegen(["r", "l"], mtype.name + "$decode")
+    var hasMapField = false,
+        needsValueVar = false,
+        i = 0;
+    for (; i < mtype.fieldsArray.length; ++i) {
+        var pfield = mtype._fieldsArray[i];
+        if (pfield.map)
+            hasMapField = true;
+        if (pfield.resolvedType instanceof Enum || !pfield.repeated && !pfield.map && !pfield.hasPresence)
+            needsValueVar = true;
+    }
+    var gen = util.codegen(["r", "l", "z", "q", "g"])
     ("if(!(r instanceof Reader))")
         ("r=Reader.create(r)")
-    ("var c=l===undefined?r.len:r.pos+l,m=new this.ctor" + (mtype.fieldsArray.filter(function(field) { return field.map; }).length ? ",k,value" : ""))
+    ("if(q===undefined)q=0")
+    ("if(q>Reader.recursionLimit)")
+        ("throw Error(\"max depth exceeded\")")
+    ("var c=l===undefined?r.len:r.pos+l,m=g||new C" + (hasMapField ? ",k,v" : needsValueVar ? ",v" : ""))
     ("while(r.pos<c){")
-        ("var t=r.uint32()");
-    if (mtype.group) gen
-        ("if((t&7)===4)")
-            ("break");
-    gen
-        ("switch(t>>>3){");
-
-    var i = 0;
-    for (; i < /* initializes */ mtype.fieldsArray.length; ++i) {
-        var field = mtype._fieldsArray[i].resolve(),
-            type  = field.resolvedType instanceof Enum ? "int32" : field.type,
-            ref   = "m" + util.safeProp(field.name); gen
-            ("case %i: {", field.id);
+        ("var s=r.pos")
+        ("var t=r.tag()")
+        ("if(t===z){")
+            ("z=undefined")
+            ("break")
+        ("}");
+    if (mtype.fieldsArray.length) gen
+        ("var u=t&7")
+        ("switch(t>>>=3){");
+    for (i = 0; i < /* initializes */ mtype.fieldsArray.length; ++i) {
+        var field  = mtype._fieldsArray[i].resolve(),
+            type   = field.resolvedType instanceof Enum ? "int32" : field.type,
+            ref    = "m" + util.safeProp(field.name),
+            closed = field.resolvedType instanceof Enum && field.resolvedType._features.enum_type === "CLOSED";
 
         // Map fields
-        if (field.map) { gen
+        if (field.map) {
+            gen
+            ("case %i:{", field.id)
+                ("if(u!==2)")
+                    ("break");
+            if (!closed) gen
                 ("if(%s===util.emptyObject)", ref)
-                    ("%s={}", ref)
-                ("var c2 = r.uint32()+r.pos");
+                    ("%s={}", ref);
+            gen
+                ("var c2=r.uint32()+r.pos");
 
             if (types.defaults[field.keyType] !== undefined) gen
                 ("k=%j", types.defaults[field.keyType]);
             else gen
                 ("k=null");
 
-            if (types.defaults[type] !== undefined) gen
-                ("value=%j", types.defaults[type]);
+            if (types.long[type] !== undefined) gen
+                ("v=util.Long?util.Long.fromNumber(0,%j):0", type === "uint64" || type === "fixed64");
+            else if (types.defaults[type] !== undefined) gen
+                ("v=%j", types.defaults[type]);
             else gen
-                ("value=null");
+                ("v=null");
 
             gen
                 ("while(r.pos<c2){")
-                    ("var tag2=r.uint32()")
-                    ("switch(tag2>>>3){")
-                        ("case 1: k=r.%s(); break", field.keyType)
-                        ("case 2:");
+                    ("var t2=r.tag()")
+                    ("u=t2&7")
+                    ("switch(t2>>>=3){")
+                        ("case 1:")
+                            ("if(u!==%i)", types.mapKey[field.keyType])
+                                ("break")
+                            ("k=r.%s()", field.keyType === "string" ? stringMethod(field) : field.keyType)
+                            ("continue")
+                        ("case 2:")
+                            ("if(u!==%i)", types.basic[type] === undefined ? 2 : types.basic[type])
+                                ("break");
 
             if (types.basic[type] === undefined) gen
-                            ("value=types[%i].decode(r,r.uint32())", i); // can't be groups
+                            ("v=types[%i].decode(r,r.uint32(),undefined,q+1)", i); // can't be groups
             else gen
-                            ("value=r.%s()", type);
+                            ("v=r.%s()", type === "string" ? stringMethod(field) : type);
 
             gen
-                            ("break")
-                        ("default:")
-                            ("r.skipType(tag2&7)")
-                            ("break")
+                            ("continue")
                     ("}")
+                    ("r.skipType(u,q,t2)")
                 ("}");
 
+            if (closed) { gen
+                ("if(types[%i].valuesById[v]===undefined){", i);
+                    genPreserveUnknown(gen, "r.raw(s,r.pos)")
+                    ("continue")
+                ("}")
+                ("if(%s===util.emptyObject)", ref)
+                    ("%s={}", ref);
+            }
+
+            var val = types.basic[type] === undefined ? "v||new types[" + i + "].ctor" : "v";
             if (types.long[field.keyType] !== undefined) gen
-                ("%s[typeof k===\"object\"?util.longToHash(k):k]=value", ref);
-            else gen
-                ("%s[k]=value", ref);
+                ("%s[typeof k===\"object\"?util.longToHash(k):k]=%s", ref, val);
+            else {
+                if (field.keyType === "string") gen
+                ("if(k===\"__proto__\")")
+                    ("util.makeProp(%s,k)", ref);
+                gen
+                ("%s[k]=%s", ref, val);
+            }
 
         // Repeated fields
         } else if (field.repeated) { gen
-
-                ("if(!(%s&&%s.length))", ref, ref)
-                    ("%s=[]", ref);
+            ("case %i:", field.id)
+            ("{");
 
             // Packable (always check for forward and backward compatiblity)
-            if (types.packed[type] !== undefined) gen
-                ("if((t&7)===2){")
-                    ("var c2=r.uint32()+r.pos")
+            if (types.packed[type] !== undefined) {
+                gen
+                ("if(u===2){");
+                if (!closed) gen
+                    ("if(!(%s&&%s.length))", ref, ref)
+                        ("%s=[]", ref);
+                gen
+                    ("var c2=r.uint32()+r.pos");
+                if (closed) {
+                    gen
+                    ("while(r.pos<c2){")
+                        ("s=r.pos")
+                        ("v=r.%s()", type)
+                        ("if(types[%i].valuesById[v]!==undefined){", i)
+                            ("if(!(%s&&%s.length))", ref, ref)
+                                ("%s=[]", ref)
+                            ("%s.push(v)", ref)
+                        ("}else");
+                            genPreserveUnknown(gen, "util.rawField(" + field.id + ",0,r.raw(s,r.pos))")
+                    ("}");
+                } else gen
                     ("while(r.pos<c2)")
-                        ("%s.push(r.%s())", ref, type)
-                ("}else");
+                        ("%s.push(r.%s())", ref, type);
+                gen
+                    ("continue")
+                ("}");
+            }
 
             // Non-packed
-            if (types.basic[type] === undefined) gen(field.resolvedType.group
-                    ? "%s.push(types[%i].decode(r))"
-                    : "%s.push(types[%i].decode(r,r.uint32()))", ref, i);
-            else gen
-                    ("%s.push(r.%s())", ref, type);
+            gen
+                ("if(u!==%i)", types.basic[type] === undefined ? field.delimited ? 3 : 2 : types.basic[type])
+                    ("break");
+            if (!closed) gen
+                ("if(!(%s&&%s.length))", ref, ref)
+                    ("%s=[]", ref);
+            if (types.basic[type] === undefined) {
+                if (field.delimited) gen
+                    ("%s.push(types[%i].decode(r,undefined,%i,q+1))", ref, i, field.id * 8 + 4);
+                else gen
+                    ("%s.push(types[%i].decode(r,r.uint32(),undefined,q+1))", ref, i);
+            } else if (closed) { gen
+                    ("v=r.%s()", type)
+                    ("if(types[%i].valuesById[v]!==undefined){", i)
+                        ("if(!(%s&&%s.length))", ref, ref)
+                            ("%s=[]", ref)
+                        ("%s.push(v)", ref)
+                    ("}else");
+                        genPreserveUnknown(gen, "r.raw(s,r.pos)");
+            } else gen
+                    ("%s.push(r.%s())", ref, type === "string" ? stringMethod(field) : type);
 
         // Non-repeated
-        } else if (types.basic[type] === undefined) gen(field.resolvedType.group
-                ? "%s=types[%i].decode(r)"
-                : "%s=types[%i].decode(r,r.uint32())", ref, i);
-        else gen
-                ("%s=r.%s()", ref, type);
+        } else if (types.basic[type] === undefined) {
+            gen
+            ("case %i:{", field.id)
+                ("if(u!==%i)", field.delimited ? 3 : 2)
+                    ("break");
+            if (field.delimited) gen
+                ("%s=types[%i].decode(r,undefined,%i,q+1,%s)", ref, i, field.id * 8 + 4, ref);
+            else gen
+                ("%s=types[%i].decode(r,r.uint32(),undefined,q+1,%s)", ref, i, ref);
+        }
+        else if (field.hasPresence) {
+            gen
+            ("case %i:{", field.id)
+                ("if(u!==%i)", types.basic[type])
+                    ("break");
+            if (closed) { gen
+                ("v=r.%s()", type)
+                ("if(types[%i].valuesById[v]!==undefined){", i)
+                    ("%s=v", ref);
+                if (field.partOf) gen
+                    ("m%s=%j", util.safeProp(field.partOf.name), field.name);
+                gen
+                ("}else");
+                    genPreserveUnknown(gen, "r.raw(s,r.pos)");
+            } else gen
+                ("%s=r.%s()", ref, type === "string" ? stringMethod(field) : type);
+        } else {
+            gen
+            ("case %i:{", field.id)
+                ("if(u!==%i)", types.basic[type])
+                    ("break");
+            if (closed) { gen
+                ("v=r.%s()", type)
+                ("if(types[%i].valuesById[v]!==undefined){", i)
+                    ("if(v!==%j)", field.typeDefault)
+                        ("%s=v", ref)
+                    ("else")
+                        ("delete %s", ref)
+                ("}else{");
+                    genPreserveUnknown(gen, "r.raw(s,r.pos)")
+                ("}");
+            } else {
+                if (field.resolvedType instanceof Enum && field.typeDefault !== 0) gen
+                    // TODO: Protoc rejects open enums whose first value is not zero.
+                    // We should do the same, but for v8 this would be a regression.
+                    ("if((v=r.%s())!==%j)", type, field.typeDefault);
+                else if (type === "string") gen
+                    ("if((v=r.%s()).length)", stringMethod(field));
+                else if (type === "bytes") gen
+                    ("if((v=r.%s()).length)", type);
+                else if (types.long[type] !== undefined) gen
+                    ("if(typeof(v=r.%s())===\"object\"?v.low||v.high:v!==0)", type);
+                else if (type === "double" || type === "float") gen
+                    ("if(!Object.is(v=r.%s(),0))", type);
+                else gen
+                    ("if(v=r.%s())", type);
+                gen
+                        ("%s=v", ref)
+                    ("else")
+                        ("delete %s", ref); // rare/odd case: later default clears earlier non-default
+            }
+        }
+        if (field.partOf && !closed) gen
+                ("m%s=%j", util.safeProp(field.partOf.name), field.name);
         gen
-                ("break")
+                ("continue")
             ("}");
-        // Unknown fields
-    } gen
-            ("default:")
-                ("r.skipType(t&7)")
-                ("break")
-
-        ("}")
-    ("}");
+    }
+    if (i) gen
+        ("}");
+    // Unknown fields
+    gen
+        ("r.skipType(%s,q,t)", i ? "u" : "t&7");
+    genPreserveUnknown(gen, "r.raw(s,r.pos)")
+    ("}")
+    ("if(z!==undefined)")
+        ("throw Error(\"missing end group\")");
 
     // Field presence
     for (i = 0; i < mtype._fieldsArray.length; ++i) {
         var rfield = mtype._fieldsArray[i];
         if (rfield.required) gen
-    ("if(!m.hasOwnProperty(%j))", rfield.name)
+    ("if(!Object.hasOwnProperty.call(m,%j))", rfield.name)
         ("throw util.ProtocolError(%j,{instance:m})", missing(rfield));
     }
 
@@ -1941,13 +1078,13 @@ function decoder(mtype) {
     /* eslint-enable no-unexpected-multiline */
 }
 
-},{"15":15,"36":36,"37":37}],14:[function(require,module,exports){
+},{"27":27,"28":28,"6":6}],5:[function(require,module,exports){
 "use strict";
 module.exports = encoder;
 
-var Enum     = require(15),
-    types    = require(36),
-    util     = require(37);
+var Enum     = require(6),
+    types    = require(27),
+    util     = require(28);
 
 /**
  * Generates a partial message type encoder.
@@ -1959,9 +1096,9 @@ var Enum     = require(15),
  * @ignore
  */
 function genTypePartial(gen, field, fieldIndex, ref) {
-    return field.resolvedType.group
-        ? gen("types[%i].encode(%s,w.uint32(%i)).uint32(%i)", fieldIndex, ref, (field.id << 3 | 3) >>> 0, (field.id << 3 | 4) >>> 0)
-        : gen("types[%i].encode(%s,w.uint32(%i).fork()).ldelim()", fieldIndex, ref, (field.id << 3 | 2) >>> 0);
+    return field.delimited
+        ? gen("types[%i].encode(%s,w.uint32(%i),q+1).uint32(%i)", fieldIndex, ref, (field.id << 3 | 3) >>> 0, (field.id << 3 | 4) >>> 0)
+        : gen("types[%i].encode(%s,w.uint32(%i).fork(),q+1).ldelim()", fieldIndex, ref, (field.id << 3 | 2) >>> 0);
 }
 
 /**
@@ -1971,9 +1108,12 @@ function genTypePartial(gen, field, fieldIndex, ref) {
  */
 function encoder(mtype) {
     /* eslint-disable no-unexpected-multiline, block-scoped-var, no-redeclare */
-    var gen = util.codegen(["m", "w"], mtype.name + "$encode")
+    var gen = util.codegen(["m", "w", "q"])
     ("if(!w)")
-        ("w=Writer.create()");
+        ("w=Writer.create()")
+    ("if(q===undefined)q=0")
+    ("if(q>util.recursionLimit)")
+        ("throw Error(\"max depth exceeded\")");
 
     var i, ref;
 
@@ -1991,10 +1131,15 @@ function encoder(mtype) {
         if (field.map) {
             gen
     ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)){", ref, field.name) // !== undefined && !== null
-        ("for(var ks=Object.keys(%s),i=0;i<ks.length;++i){", ref)
+        ("for(var ks=Object.keys(%s),i=0;i<ks.length;++i){", ref);
+            if (field.keyType === "bool") gen
+            ("w.uint32(%i).fork().uint32(%i).bool(util.boolFromKey(ks[i]))", (field.id << 3 | 2) >>> 0, 8 | types.mapKey[field.keyType]);
+            else if (types.long[field.keyType] !== undefined) gen
+            ("w.uint32(%i).fork().uint32(%i).%s(util.longFromKey(ks[i],%j))", (field.id << 3 | 2) >>> 0, 8 | types.mapKey[field.keyType], field.keyType, field.keyType === "uint64" || field.keyType === "fixed64");
+            else gen
             ("w.uint32(%i).fork().uint32(%i).%s(ks[i])", (field.id << 3 | 2) >>> 0, 8 | types.mapKey[field.keyType], field.keyType);
             if (wireType === undefined) gen
-            ("types[%i].encode(%s[ks[i]],w.uint32(18).fork()).ldelim().ldelim()", index, ref); // can't be groups
+            ("types[%i].encode(%s[ks[i]],w.uint32(18).fork(),q+1).ldelim().ldelim()", index, ref); // can't be groups
             else gen
             (".uint32(%i).%s(%s[ks[i]]).ldelim()", 16 | wireType, type, ref);
             gen
@@ -2027,8 +1172,23 @@ function encoder(mtype) {
 
         // Non-repeated
         } else {
-            if (field.optional) gen
+            if (!field.required)
+                if (field.hasPresence || !(field.resolvedType instanceof Enum || types.basic[type] !== undefined)) gen
     ("if(%s!=null&&Object.hasOwnProperty.call(m,%j))", ref, field.name); // !== undefined && !== null
+                else if (field.resolvedType instanceof Enum) gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&%s!==%j)", ref, field.name, ref, field.typeDefault);
+                else if (type === "bool") gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&%s!==false)", ref, field.name, ref);
+                else if (type === "string") gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&%s!==\"\")", ref, field.name, ref);
+                else if (type === "bytes") gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&%s.length)", ref, field.name, ref);
+                else if (type === "double" || type === "float") gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&!Object.is(%s,0))", ref, field.name, ref);
+                else if (types.long[type] !== undefined) gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&(typeof %s===\"object\"?%s.low||%s.high:%s!==0))", ref, field.name, ref, ref, ref, ref);
+                else gen
+    ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)&&%s!==0)", ref, field.name, ref);
 
             if (wireType === undefined)
         genTypePartial(gen, field, index, ref);
@@ -2039,20 +1199,31 @@ function encoder(mtype) {
     }
 
     return gen
+    ("if(m.$unknowns!=null&&Object.hasOwnProperty.call(m,\"$unknowns\"))")
+        ("for(var i=0;i<m.$unknowns.length;++i)")
+            ("w.raw(m.$unknowns[i])")
     ("return w");
     /* eslint-enable no-unexpected-multiline, block-scoped-var, no-redeclare */
 }
 
-},{"15":15,"36":36,"37":37}],15:[function(require,module,exports){
+},{"27":27,"28":28,"6":6}],6:[function(require,module,exports){
 "use strict";
 module.exports = Enum;
 
 // extends ReflectionObject
-var ReflectionObject = require(24);
-((Enum.prototype = Object.create(ReflectionObject.prototype)).constructor = Enum).className = "Enum";
+var ReflectionObject = require(15);
+Enum.prototype = Object.create(ReflectionObject.prototype, {
+    constructor: {
+        value: Enum,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Enum.className = "Enum";
 
-var Namespace = require(23),
-    util = require(37);
+var Namespace = require(14),
+    util = require(28);
 
 /**
  * Constructs a new enum instance.
@@ -2063,7 +1234,7 @@ var Namespace = require(23),
  * @param {Object.<string,number>} [values] Enum values as an object, by name
  * @param {Object.<string,*>} [options] Declared options
  * @param {string} [comment] The comment for this enum
- * @param {Object.<string,string>} [comments] The value comments for this enum
+ * @param {Object.<string,string|null>} [comments] The value comments for this enum
  * @param {Object.<string,Object<string,*>>|undefined} [valuesOptions] The value options for this enum
  */
 function Enum(name, values, options, comment, comments, valuesOptions) {
@@ -2076,7 +1247,7 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
      * Enum values by id.
      * @type {Object.<number,string>}
      */
-    this.valuesById = {};
+    this.valuesById = Object.create(null);
 
     /**
      * Enum values by name.
@@ -2092,7 +1263,7 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
 
     /**
      * Value comment texts, if any.
-     * @type {Object.<string,string>}
+     * @type {Object.<string,string|null>}
      */
     this.comments = comments || {};
 
@@ -2101,6 +1272,12 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
      * @type {Object<string, Object<string, *>>|undefined}
      */
     this.valuesOptions = valuesOptions;
+
+    /**
+     * Resolved values features, if any
+     * @type {Object<string, Object<string, *>>|undefined}
+     */
+    this._valuesFeatures = {};
 
     /**
      * Reserved ranges, if any.
@@ -2114,15 +1291,35 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
 
     if (values)
         for (var keys = Object.keys(values), i = 0; i < keys.length; ++i)
-            if (typeof values[keys[i]] === "number") // use forward entries only
+            if (keys[i] !== "__proto__" && typeof values[keys[i]] === "number") // use forward entries only
                 this.valuesById[ this.values[keys[i]] = values[keys[i]] ] = keys[i];
 }
 
 /**
+ * @override
+ */
+Enum.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    edition = this._edition || edition;
+    ReflectionObject.prototype._resolveFeatures.call(this, edition);
+
+    Object.keys(this.values).forEach(key => {
+        var parentFeaturesCopy = util.merge({}, this._features);
+        this._valuesFeatures[key] = util.merge(parentFeaturesCopy, this.valuesOptions && this.valuesOptions[key] && this.valuesOptions[key].features || {});
+    });
+
+    return this;
+};
+
+/**
  * Enum descriptor.
  * @interface IEnum
+ * @property {string} [edition] Edition
  * @property {Object.<string,number>} values Enum values
  * @property {Object.<string,*>} [options] Enum options
+ * @property {Object.<string,Object.<string,*>>} [valuesOptions] Enum value options
+ * @property {Array.<number[]|string>} [reserved] Reserved ranges
+ * @property {string|null} [comment] Enum comment
+ * @property {Object.<string,string|null>} [comments] Value comments
  */
 
 /**
@@ -2133,8 +1330,11 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
  * @throws {TypeError} If arguments are invalid
  */
 Enum.fromJSON = function fromJSON(name, json) {
-    var enm = new Enum(name, json.values, json.options, json.comment, json.comments);
+    var enm = new Enum(name, json.values, json.options, json.comment, json.comments, json.valuesOptions);
     enm.reserved = json.reserved;
+    if (json.edition)
+        enm._edition = json.edition;
+    enm._defaultEdition = "proto3";  // For backwards-compatibility.
     return enm;
 };
 
@@ -2146,6 +1346,7 @@ Enum.fromJSON = function fromJSON(name, json) {
 Enum.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition"       , this._editionToJSON(),
         "options"       , this.options,
         "valuesOptions" , this.valuesOptions,
         "values"        , this.values,
@@ -2173,6 +1374,9 @@ Enum.prototype.add = function add(name, id, comment, options) {
 
     if (!util.isInteger(id))
         throw TypeError("id must be an integer");
+
+    if (name === "__proto__")
+        return this;
 
     if (this.values[name] !== undefined)
         throw Error("duplicate name '" + name + "' in " + this);
@@ -2243,21 +1447,29 @@ Enum.prototype.isReservedName = function isReservedName(name) {
     return Namespace.isReservedName(this.reserved, name);
 };
 
-},{"23":23,"24":24,"37":37}],16:[function(require,module,exports){
+},{"14":14,"15":15,"28":28}],7:[function(require,module,exports){
 "use strict";
 module.exports = Field;
 
 // extends ReflectionObject
-var ReflectionObject = require(24);
-((Field.prototype = Object.create(ReflectionObject.prototype)).constructor = Field).className = "Field";
+var ReflectionObject = require(15);
+Field.prototype = Object.create(ReflectionObject.prototype, {
+    constructor: {
+        value: Field,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Field.className = "Field";
 
-var Enum  = require(15),
-    types = require(36),
-    util  = require(37);
+var Enum  = require(6),
+    types = require(27),
+    util  = require(28);
 
 var Type; // cyclic
 
-var ruleRe = /^required|optional|repeated$/;
+var ruleRe = /^(?:required|optional|repeated)$/;
 
 /**
  * Constructs a new message field instance. Note that {@link MapField|map fields} have their own class.
@@ -2281,7 +1493,17 @@ var ruleRe = /^required|optional|repeated$/;
  * @throws {TypeError} If arguments are invalid
  */
 Field.fromJSON = function fromJSON(name, json) {
-    return new Field(name, json.id, json.type, json.rule, json.extend, json.options, json.comment);
+    var field = new Field(name, json.id, json.type, json.rule, json.extend, json.options, json.comment);
+    if (json.edition)
+        field._edition = json.edition;
+    if (json.protoName)
+        field.protoName = json.protoName;
+    if (json.jsonName !== undefined)
+        field.jsonName = json.jsonName;
+    else if (json.options && json.options.json_name !== undefined)
+        field.jsonName = json.options.json_name;
+    field._defaultEdition = "proto3";  // For backwards-compatibility.
+    return field;
 };
 
 /**
@@ -2328,9 +1550,6 @@ function Field(name, id, type, rule, extend, options, comment) {
      * Field rule, if any.
      * @type {string|undefined}
      */
-    if (rule === "proto3_optional") {
-        rule = "optional";
-    }
     this.rule = rule && rule !== "optional" ? rule : undefined; // toJSON
 
     /**
@@ -2350,18 +1569,6 @@ function Field(name, id, type, rule, extend, options, comment) {
      * @type {string|undefined}
      */
     this.extend = extend || undefined; // toJSON
-
-    /**
-     * Whether this field is required.
-     * @type {boolean}
-     */
-    this.required = rule === "required";
-
-    /**
-     * Whether this field is optional.
-     * @type {boolean}
-     */
-    this.optional = !this.required;
 
     /**
      * Whether this field is repeated.
@@ -2430,50 +1637,123 @@ function Field(name, id, type, rule, extend, options, comment) {
     this.declaringField = null;
 
     /**
-     * Internally remembers whether this field is packed.
-     * @type {boolean|null}
-     * @private
-     */
-    this._packed = null;
-
-    /**
      * Comment for this field.
      * @type {string|null}
      */
     this.comment = comment;
+
+    /**
+     * Field name as declared in the .proto source, if different from `name`.
+     * @type {string|undefined}
+     */
+    this.protoName = undefined;
+
+    /**
+     * JSON name, if different from the derived default.
+     * @type {string|undefined}
+     */
+    this.jsonName = undefined;
 }
 
 /**
- * Determines whether this field is packed. Only relevant when repeated and working with proto2.
+ * Determines whether this field is required.
+ * @name Field#required
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "required", {
+    get: function() {
+        return this._features.field_presence === "LEGACY_REQUIRED";
+    }
+});
+
+/**
+ * Determines whether this field is not required.
+ * @name Field#optional
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "optional", {
+    get: function() {
+        return !this.required;
+    }
+});
+
+/**
+ * Determines whether this field uses tag-delimited encoding.  In proto2 this
+ * corresponded to group syntax.
+ * @name Field#delimited
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "delimited", {
+    get: function() {
+        return this.resolvedType instanceof Type &&
+            this._features.message_encoding === "DELIMITED";
+    }
+});
+
+/**
+ * Determines whether this field is packed. Only relevant when repeated.
  * @name Field#packed
  * @type {boolean}
  * @readonly
  */
 Object.defineProperty(Field.prototype, "packed", {
     get: function() {
-        // defaults to packed=true if not explicity set to false
-        if (this._packed === null)
-            this._packed = this.getOption("packed") !== false;
-        return this._packed;
+        return this._features.repeated_field_encoding === "PACKED";
     }
 });
+
+/**
+ * Determines whether this field tracks presence.
+ * @name Field#hasPresence
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "hasPresence", {
+    get: function() {
+        if (this.repeated || this.map) {
+            return false;
+        }
+        return this.partOf || // oneofs
+            this.declaringField || this.extensionField || // extensions
+            this._features.field_presence !== "IMPLICIT";
+    }
+});
+
+/**
+ * The field name as declared in the .proto source (snake_case). Populated on resolve,
+ * falling back to `name`. Mirrors `FieldDescriptorProto.name`.
+ * @name Field#protoName
+ * @type {string}
+ * @readonly
+ */
+
+/**
+ * The JSON name of this field (lowerCamelCase per protoc's `ToJsonName`, or an
+ * explicit `[json_name]`). Populated on resolve. This is the key used on ProtoJSON output.
+ * @name Field#jsonName
+ * @type {string}
+ * @readonly
+ */
 
 /**
  * @override
  */
 Field.prototype.setOption = function setOption(name, value, ifNotSet) {
-    if (name === "packed") // clear cached before setting
-        this._packed = null;
     return ReflectionObject.prototype.setOption.call(this, name, value, ifNotSet);
 };
 
 /**
  * Field descriptor.
  * @interface IField
+ * @property {string} [edition] Edition
  * @property {string} [rule="optional"] Field rule
  * @property {string} type Field type
  * @property {number} id Field id
  * @property {Object.<string,*>} [options] Field options
+ * @property {string|null} [comment] Field comment
  */
 
 /**
@@ -2491,12 +1771,15 @@ Field.prototype.setOption = function setOption(name, value, ifNotSet) {
 Field.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
-        "rule"    , this.rule !== "optional" && this.rule || undefined,
-        "type"    , this.type,
-        "id"      , this.id,
-        "extend"  , this.extend,
-        "options" , this.options,
-        "comment" , keepComments ? this.comment : undefined
+        "edition"      , this._editionToJSON(),
+        "rule"         , this.rule !== "optional" && this.rule || undefined,
+        "type"         , this.type,
+        "id"           , this.id,
+        "extend"       , this.extend,
+        "protoName"    , this.protoName !== this.name ? this.protoName : undefined,
+        "jsonName"     , this.jsonName !== util.jsonName(this.protoName || this.name) ? this.jsonName : undefined,
+        "options"      , this.options,
+        "comment"      , keepComments ? this.comment : undefined
     ]);
 };
 
@@ -2530,7 +1813,7 @@ Field.prototype.resolve = function resolve() {
 
     // remove unnecessary options
     if (this.options) {
-        if (this.options.packed === true || this.options.packed !== undefined && this.resolvedType && !(this.resolvedType instanceof Enum))
+        if (this.options.packed !== undefined && this.resolvedType && !(this.resolvedType instanceof Enum))
             delete this.options.packed;
         if (!Object.keys(this.options).length)
             this.options = undefined;
@@ -2538,7 +1821,7 @@ Field.prototype.resolve = function resolve() {
 
     // convert to internal data type if necesssary
     if (this.long) {
-        this.typeDefault = util.Long.fromNumber(this.typeDefault, this.type.charAt(0) === "u");
+        this.typeDefault = util.Long.fromNumber(this.typeDefault, this.type === "uint64" || this.type === "fixed64");
 
         /* istanbul ignore else */
         if (Object.freeze)
@@ -2562,10 +1845,56 @@ Field.prototype.resolve = function resolve() {
         this.defaultValue = this.typeDefault;
 
     // ensure proper value on prototype
-    if (this.parent instanceof Type)
-        this.parent.ctor.prototype[this.name] = this.defaultValue;
+    if (this.parent instanceof Type && this.parent._ctor)
+        this.parent._ctor.prototype[this.name] = this.defaultValue;
+
+    // derive the proto/JSON names
+    if (this.protoName === undefined)
+        this.protoName = this.name;
+    if (this.jsonName === undefined)
+        this.jsonName = util.jsonName(this.protoName);
 
     return ReflectionObject.prototype.resolve.call(this);
+};
+
+/**
+ * Infers field features from legacy syntax that may have been specified differently.
+ * in older editions.
+ * @param {string|undefined} edition The edition this proto is on, or undefined if pre-editions
+ * @returns {object} The feature values to override
+ */
+Field.prototype._inferLegacyProtoFeatures = function _inferLegacyProtoFeatures(edition) {
+    if (edition !== "proto2" && edition !== "proto3") {
+        return {};
+    }
+
+    var features = {};
+
+    if (this.rule === "required") {
+        features.field_presence = "LEGACY_REQUIRED";
+    }
+    if (this.parent && types.defaults[this.type] === undefined) {
+        // We can't use resolvedType because types may not have been resolved yet.  However,
+        // legacy groups are always in the same scope as the field so we don't have to do a
+        // full scan of the tree.
+        var type = this.parent.get(this.type.split(".").pop());
+        if (type && type instanceof Type && type.group) {
+            features.message_encoding = "DELIMITED";
+        }
+    }
+    if (this.getOption("packed") === true) {
+        features.repeated_field_encoding = "PACKED";
+    } else if (this.getOption("packed") === false) {
+        features.repeated_field_encoding = "EXPANDED";
+    }
+    return features;
+};
+
+/**
+ * @override
+ */
+Field.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    return ReflectionObject.prototype._resolveFeatures.call(this, this._edition || edition);
 };
 
 /**
@@ -2575,6 +1904,7 @@ Field.prototype.resolve = function resolve() {
  * @param {Object} prototype Target prototype
  * @param {string} fieldName Field name
  * @returns {undefined}
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 
 /**
@@ -2587,6 +1917,7 @@ Field.prototype.resolve = function resolve() {
  * @param {T} [defaultValue] Default value
  * @returns {FieldDecorator} Decorator function
  * @template T extends number | number[] | Long | Long[] | string | string[] | boolean | boolean[] | Uint8Array | Uint8Array[] | Buffer | Buffer[]
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 Field.d = function decorateField(fieldId, fieldType, fieldRule, defaultValue) {
 
@@ -2604,6 +1935,11 @@ Field.d = function decorateField(fieldId, fieldType, fieldRule, defaultValue) {
     };
 };
 
+// Sets up cyclic dependencies (called in index-light)
+Field._configure = function configure(Type_) {
+    Type = Type_;
+};
+
 /**
  * Field decorator (TypeScript).
  * @name Field.d
@@ -2614,19 +1950,15 @@ Field.d = function decorateField(fieldId, fieldType, fieldRule, defaultValue) {
  * @returns {FieldDecorator} Decorator function
  * @template T extends Message<T>
  * @variation 2
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 // like Field.d but without a default value
 
-// Sets up cyclic dependencies (called in index-light)
-Field._configure = function configure(Type_) {
-    Type = Type_;
-};
-
-},{"15":15,"24":24,"36":36,"37":37}],17:[function(require,module,exports){
+},{"15":15,"27":27,"28":28,"6":6}],8:[function(require,module,exports){
 "use strict";
-var protobuf = module.exports = require(18);
+exports = module.exports = require(9);
 
-protobuf.build = "light";
+exports.build = "light";
 
 /**
  * A node-style callback as used by {@link load} and {@link Root#load}.
@@ -2648,9 +1980,9 @@ protobuf.build = "light";
 function load(filename, root, callback) {
     if (typeof root === "function") {
         callback = root;
-        root = new protobuf.Root();
+        root = new exports.Root();
     } else if (!root)
-        root = new protobuf.Root();
+        root = new exports.Root();
     return root.load(filename, callback);
 }
 
@@ -2678,7 +2010,7 @@ function load(filename, root, callback) {
  */
 // function load(filename:string, [root:Root]):Promise<Root>
 
-protobuf.load = load;
+exports.load = load;
 
 /**
  * Synchronously loads one or multiple .proto or preprocessed .json files into a common root namespace (node only).
@@ -2690,47 +2022,46 @@ protobuf.load = load;
  */
 function loadSync(filename, root) {
     if (!root)
-        root = new protobuf.Root();
+        root = new exports.Root();
     return root.loadSync(filename);
 }
 
-protobuf.loadSync = loadSync;
+exports.loadSync = loadSync;
 
 // Serialization
-protobuf.encoder          = require(14);
-protobuf.decoder          = require(13);
-protobuf.verifier         = require(40);
-protobuf.converter        = require(12);
+exports.encoder          = require(5);
+exports.decoder          = require(4);
+exports.verifier         = require(42);
+exports.converter        = require(3);
 
 // Reflection
-protobuf.ReflectionObject = require(24);
-protobuf.Namespace        = require(23);
-protobuf.Root             = require(29);
-protobuf.Enum             = require(15);
-protobuf.Type             = require(35);
-protobuf.Field            = require(16);
-protobuf.OneOf            = require(25);
-protobuf.MapField         = require(20);
-protobuf.Service          = require(33);
-protobuf.Method           = require(22);
+exports.ReflectionObject = require(15);
+exports.Namespace        = require(14);
+exports.Root             = require(20);
+exports.Enum             = require(6);
+exports.Type             = require(26);
+exports.Field            = require(7);
+exports.OneOf            = require(16);
+exports.MapField         = require(11);
+exports.Service          = require(24);
+exports.Method           = require(13);
 
 // Runtime
-protobuf.Message          = require(21);
-protobuf.wrappers         = require(41);
+exports.Message          = require(12);
+exports.wrappers         = require(43);
 
 // Utility
-protobuf.types            = require(36);
-protobuf.util             = require(37);
+exports.types            = require(27);
+exports.util             = require(28);
 
 // Set up possibly cyclic reflection dependencies
-protobuf.ReflectionObject._configure(protobuf.Root);
-protobuf.Namespace._configure(protobuf.Type, protobuf.Service, protobuf.Enum);
-protobuf.Root._configure(protobuf.Type);
-protobuf.Field._configure(protobuf.Type);
+exports.ReflectionObject._configure(exports.Root);
+exports.Namespace._configure(exports.Type, exports.Service, exports.Enum);
+exports.Root._configure(exports.Type, undefined, {});
+exports.Field._configure(exports.Type);
 
-},{"12":12,"13":13,"14":14,"15":15,"16":16,"18":18,"20":20,"21":21,"22":22,"23":23,"24":24,"25":25,"29":29,"33":33,"35":35,"36":36,"37":37,"40":40,"41":41}],18:[function(require,module,exports){
+},{"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"20":20,"24":24,"26":26,"27":27,"28":28,"3":3,"4":4,"42":42,"43":43,"5":5,"6":6,"7":7,"9":9}],9:[function(require,module,exports){
 "use strict";
-var protobuf = exports;
 
 /**
  * Build type, one of `"full"`, `"light"` or `"minimal"`.
@@ -2738,19 +2069,19 @@ var protobuf = exports;
  * @type {string}
  * @const
  */
-protobuf.build = "minimal";
+exports.build = "minimal";
 
 // Serialization
-protobuf.Writer       = require(42);
-protobuf.BufferWriter = require(43);
-protobuf.Reader       = require(27);
-protobuf.BufferReader = require(28);
+exports.Writer       = require(44);
+exports.BufferWriter = require(45);
+exports.Reader       = require(18);
+exports.BufferReader = require(19);
 
 // Utility
-protobuf.util         = require(39);
-protobuf.rpc          = require(31);
-protobuf.roots        = require(30);
-protobuf.configure    = configure;
+exports.util         = require(37);
+exports.rpc          = require(22);
+exports.roots        = require(21);
+exports.configure    = configure;
 
 /* istanbul ignore next */
 /**
@@ -2758,38 +2089,46 @@ protobuf.configure    = configure;
  * @returns {undefined}
  */
 function configure() {
-    protobuf.util._configure();
-    protobuf.Writer._configure(protobuf.BufferWriter);
-    protobuf.Reader._configure(protobuf.BufferReader);
+    exports.util._configure();
+    exports.Writer._configure(exports.BufferWriter);
+    exports.Reader._configure(exports.BufferReader);
 }
 
 // Set up buffer utility according to the environment
 configure();
 
-},{"27":27,"28":28,"30":30,"31":31,"39":39,"42":42,"43":43}],19:[function(require,module,exports){
+},{"18":18,"19":19,"21":21,"22":22,"37":37,"44":44,"45":45}],10:[function(require,module,exports){
 "use strict";
-var protobuf = module.exports = require(17);
+exports = module.exports = require(8);
 
-protobuf.build = "full";
+exports.build = "full";
 
 // Parser
-protobuf.tokenize         = require(34);
-protobuf.parse            = require(26);
-protobuf.common           = require(11);
+exports.tokenize         = require(25);
+exports.parse            = require(17);
+exports.common           = require(2);
 
 // Configure parser
-protobuf.Root._configure(protobuf.Type, protobuf.parse, protobuf.common);
+exports.Root._configure(exports.Type, exports.parse, exports.common);
 
-},{"11":11,"17":17,"26":26,"34":34}],20:[function(require,module,exports){
+},{"17":17,"2":2,"25":25,"8":8}],11:[function(require,module,exports){
 "use strict";
 module.exports = MapField;
 
 // extends Field
-var Field = require(16);
-((MapField.prototype = Object.create(Field.prototype)).constructor = MapField).className = "MapField";
+var Field = require(7);
+MapField.prototype = Object.create(Field.prototype, {
+    constructor: {
+        value: MapField,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+MapField.className = "MapField";
 
-var types   = require(36),
-    util    = require(37);
+var types   = require(27),
+    util    = require(28);
 
 /**
  * Constructs a new map field instance.
@@ -2848,7 +2187,14 @@ function MapField(name, id, keyType, type, options, comment) {
  * @throws {TypeError} If arguments are invalid
  */
 MapField.fromJSON = function fromJSON(name, json) {
-    return new MapField(name, json.id, json.keyType, json.type, json.options, json.comment);
+    var field = new MapField(name, json.id, json.keyType, json.type, json.options, json.comment);
+    if (json.protoName)
+        field.protoName = json.protoName;
+    if (json.jsonName !== undefined)
+        field.jsonName = json.jsonName;
+    else if (json.options && json.options.json_name !== undefined)
+        field.jsonName = json.options.json_name;
+    return field;
 };
 
 /**
@@ -2859,12 +2205,14 @@ MapField.fromJSON = function fromJSON(name, json) {
 MapField.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
-        "keyType" , this.keyType,
-        "type"    , this.type,
-        "id"      , this.id,
-        "extend"  , this.extend,
-        "options" , this.options,
-        "comment" , keepComments ? this.comment : undefined
+        "keyType"      , this.keyType,
+        "type"         , this.type,
+        "id"           , this.id,
+        "extend"       , this.extend,
+        "protoName"    , this.protoName !== this.name ? this.protoName : undefined,
+        "jsonName"     , this.jsonName !== util.jsonName(this.protoName || this.name) ? this.jsonName : undefined,
+        "options"      , this.options,
+        "comment"      , keepComments ? this.comment : undefined
     ]);
 };
 
@@ -2891,6 +2239,7 @@ MapField.prototype.resolve = function resolve() {
  * @param {"double"|"float"|"int32"|"uint32"|"sint32"|"fixed32"|"sfixed32"|"int64"|"uint64"|"sint64"|"fixed64"|"sfixed64"|"bool"|"string"|"bytes"|Object|Constructor<{}>} fieldValueType Field value type
  * @returns {FieldDecorator} Decorator function
  * @template T extends { [key: string]: number | Long | string | boolean | Uint8Array | Buffer | number[] | Message<{}> }
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 MapField.d = function decorateMapField(fieldId, fieldKeyType, fieldValueType) {
 
@@ -2908,24 +2257,26 @@ MapField.d = function decorateMapField(fieldId, fieldKeyType, fieldValueType) {
     };
 };
 
-},{"16":16,"36":36,"37":37}],21:[function(require,module,exports){
+},{"27":27,"28":28,"7":7}],12:[function(require,module,exports){
 "use strict";
 module.exports = Message;
 
-var util = require(39);
+var util = require(37);
 
 /**
  * Constructs a new message instance.
  * @classdesc Abstract runtime message.
  * @constructor
  * @param {Properties<T>} [properties] Properties to set
+ * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
  * @template T extends object = object
  */
 function Message(properties) {
     // not used internally
     if (properties)
         for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-            this[keys[i]] = properties[keys[i]];
+            if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                this[keys[i]] = properties[keys[i]];
 }
 
 /**
@@ -2942,12 +2293,10 @@ function Message(properties) {
  * @readonly
  */
 
-/*eslint-disable valid-jsdoc*/
-
 /**
  * Creates a new message of this type using the specified properties.
  * @param {Object.<string,*>} [properties] Properties to set
- * @returns {Message<T>} Message instance
+ * @returns {T} Message instance
  * @template T extends Message<T>
  * @this Constructor<T>
  */
@@ -3047,16 +2396,23 @@ Message.prototype.toJSON = function toJSON() {
     return this.$type.toObject(this, util.toJSONOptions);
 };
 
-/*eslint-enable valid-jsdoc*/
-},{"39":39}],22:[function(require,module,exports){
+},{"37":37}],13:[function(require,module,exports){
 "use strict";
 module.exports = Method;
 
 // extends ReflectionObject
-var ReflectionObject = require(24);
-((Method.prototype = Object.create(ReflectionObject.prototype)).constructor = Method).className = "Method";
+var ReflectionObject = require(15);
+Method.prototype = Object.create(ReflectionObject.prototype, {
+    constructor: {
+        value: Method,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Method.className = "Method";
 
-var util = require(37);
+var util = require(28);
 
 /**
  * Constructs a new service method instance.
@@ -3071,7 +2427,7 @@ var util = require(37);
  * @param {boolean|Object.<string,*>} [responseStream] Whether the response is streamed
  * @param {Object.<string,*>} [options] Declared options
  * @param {string} [comment] The comment for this method
- * @param {Object.<string,*>} [parsedOptions] Declared options, properly parsed into an object
+ * @param {Array.<Object.<string,*>>} [parsedOptions] Declared options, properly parsed into objects
  */
 function Method(name, type, requestType, responseType, requestStream, responseStream, options, comment, parsedOptions) {
 
@@ -3112,7 +2468,7 @@ function Method(name, type, requestType, responseType, requestStream, responseSt
 
     /**
      * Whether requests are streamed or not.
-     * @type {boolean|undefined}
+     * @type {true|undefined}
      */
     this.requestStream = requestStream ? true : undefined; // toJSON
 
@@ -3124,9 +2480,15 @@ function Method(name, type, requestType, responseType, requestStream, responseSt
 
     /**
      * Whether responses are streamed or not.
-     * @type {boolean|undefined}
+     * @type {true|undefined}
      */
     this.responseStream = responseStream ? true : undefined; // toJSON
+
+    /**
+     * gRPC-style method path.
+     * @type {string}
+     */
+    this.path = "/" + this.name;
 
     /**
      * Resolved request type.
@@ -3147,7 +2509,8 @@ function Method(name, type, requestType, responseType, requestStream, responseSt
     this.comment = comment;
 
     /**
-     * Options properly parsed into an object
+     * Options properly parsed into objects
+     * @type {Array.<Object.<string,*>>|undefined}
      */
     this.parsedOptions = parsedOptions;
 }
@@ -3161,8 +2524,8 @@ function Method(name, type, requestType, responseType, requestStream, responseSt
  * @property {boolean} [requestStream=false] Whether requests are streamed
  * @property {boolean} [responseStream=false] Whether responses are streamed
  * @property {Object.<string,*>} [options] Method options
- * @property {string} comment Method comments
- * @property {Object.<string,*>} [parsedOptions] Method options properly parsed into an object
+ * @property {string|null} [comment] Method comment
+ * @property {Array.<Object.<string,*>>} [parsedOptions] Method options properly parsed into objects
  */
 
 /**
@@ -3204,23 +2567,39 @@ Method.prototype.resolve = function resolve() {
     if (this.resolved)
         return this;
 
+    if (this.parent) {
+        var serviceName = this.parent.fullName;
+        if (serviceName.charAt(0) === ".")
+            serviceName = serviceName.substring(1);
+        this.path = "/" + serviceName + "/" + this.name;
+    } else
+        this.path = "/" + this.name;
+
     this.resolvedRequestType = this.parent.lookupType(this.requestType);
     this.resolvedResponseType = this.parent.lookupType(this.responseType);
 
     return ReflectionObject.prototype.resolve.call(this);
 };
 
-},{"24":24,"37":37}],23:[function(require,module,exports){
+},{"15":15,"28":28}],14:[function(require,module,exports){
 "use strict";
 module.exports = Namespace;
 
 // extends ReflectionObject
-var ReflectionObject = require(24);
-((Namespace.prototype = Object.create(ReflectionObject.prototype)).constructor = Namespace).className = "Namespace";
+var ReflectionObject = require(15);
+Namespace.prototype = Object.create(ReflectionObject.prototype, {
+    constructor: {
+        value: Namespace,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Namespace.className = "Namespace";
 
-var Field    = require(16),
-    util     = require(37),
-    OneOf    = require(25);
+var Field    = require(7),
+    util     = require(28),
+    OneOf    = require(16);
 
 var Type,    // cyclic
     Service,
@@ -3242,11 +2621,16 @@ var Type,    // cyclic
  * @function
  * @param {string} name Namespace name
  * @param {Object.<string,*>} json JSON object
+ * @param {number} [depth] Current nesting depth, defaults to `0`
  * @returns {Namespace} Created namespace
  * @throws {TypeError} If arguments are invalid
  */
-Namespace.fromJSON = function fromJSON(name, json) {
-    return new Namespace(name, json.options).addJSON(json.nested);
+Namespace.fromJSON = function fromJSON(name, json, depth) {
+    if (depth === undefined)
+        depth = 0;
+    if (depth > util.recursionLimit)
+        throw Error("max depth exceeded");
+    return new Namespace(name, json.options).addJSON(json.nested, depth);
 };
 
 /**
@@ -3276,7 +2660,7 @@ Namespace.arrayToJSON = arrayToJSON;
 Namespace.isReservedId = function isReservedId(reserved, id) {
     if (reserved)
         for (var i = 0; i < reserved.length; ++i)
-            if (typeof reserved[i] !== "string" && reserved[i][0] <= id && reserved[i][1] > id)
+            if (typeof reserved[i] !== "string" && reserved[i][0] <= id && reserved[i][1] >= id)
                 return true;
     return false;
 };
@@ -3321,10 +2705,40 @@ function Namespace(name, options) {
      * @private
      */
     this._nestedArray = null;
+
+    /**
+     * Cache lookup calls for any objects contains anywhere under this namespace.
+     * This drastically speeds up resolve for large cross-linked protos where the same
+     * types are looked up repeatedly.
+     * @type {Object.<string,ReflectionObject|null>}
+     * @private
+     */
+    this._lookupCache = Object.create(null);
+
+    /**
+     * Whether or not objects contained in this namespace need feature resolution.
+     * @type {boolean}
+     * @protected
+     */
+    this._needsRecursiveFeatureResolution = true;
+
+    /**
+     * Whether or not objects contained in this namespace need a resolve.
+     * @type {boolean}
+     * @protected
+     */
+    this._needsRecursiveResolve = true;
 }
 
 function clearCache(namespace) {
     namespace._nestedArray = null;
+    namespace._lookupCache = Object.create(null);
+
+    // Also clear parent caches, since they include nested lookups.
+    var parent = namespace;
+    while(parent = parent.parent) {
+        parent._lookupCache = Object.create(null);
+    }
     return namespace;
 }
 
@@ -3374,9 +2788,14 @@ Namespace.prototype.toJSON = function toJSON(toJSONOptions) {
 /**
  * Adds nested objects to this namespace from nested object descriptors.
  * @param {Object.<string,AnyNestedObject>} nestedJson Any nested object descriptors
+ * @param {number} [depth] Current nesting depth, defaults to `0`
  * @returns {Namespace} `this`
  */
-Namespace.prototype.addJSON = function addJSON(nestedJson) {
+Namespace.prototype.addJSON = function addJSON(nestedJson, depth) {
+    if (depth === undefined)
+        depth = 0;
+    if (depth > util.recursionLimit)
+        throw Error("max depth exceeded");
     var ns = this;
     /* istanbul ignore else */
     if (nestedJson) {
@@ -3391,7 +2810,7 @@ Namespace.prototype.addJSON = function addJSON(nestedJson) {
                 ? Service.fromJSON
                 : nested.id !== undefined
                 ? Field.fromJSON
-                : Namespace.fromJSON )(names[i], nested)
+                : Namespace.fromJSON )(names[i], nested, depth + 1)
             );
         }
     }
@@ -3404,8 +2823,9 @@ Namespace.prototype.addJSON = function addJSON(nestedJson) {
  * @returns {ReflectionObject|null} The reflection object or `null` if it doesn't exist
  */
 Namespace.prototype.get = function get(name) {
-    return this.nested && this.nested[name]
-        || null;
+    return this.nested && Object.prototype.hasOwnProperty.call(this.nested, name)
+        ? this.nested[name]
+        : null;
 };
 
 /**
@@ -3416,7 +2836,7 @@ Namespace.prototype.get = function get(name) {
  * @throws {Error} If there is no such enum
  */
 Namespace.prototype.getEnum = function getEnum(name) {
-    if (this.nested && this.nested[name] instanceof Enum)
+    if (this.nested && Object.prototype.hasOwnProperty.call(this.nested, name) && this.nested[name] instanceof Enum)
         return this.nested[name].values;
     throw Error("no such enum: " + name);
 };
@@ -3432,6 +2852,9 @@ Namespace.prototype.add = function add(object) {
 
     if (!(object instanceof Field && object.extend !== undefined || object instanceof Type  || object instanceof OneOf || object instanceof Enum || object instanceof Service || object instanceof Namespace))
         throw TypeError("object must be a valid nested object");
+
+    if (object.name === "__proto__")
+        return this;
 
     if (!this.nested)
         this.nested = {};
@@ -3453,6 +2876,25 @@ Namespace.prototype.add = function add(object) {
         }
     }
     this.nested[object.name] = object;
+
+    if (!(this instanceof Type || this instanceof Service || this instanceof Enum || this instanceof Field)) {
+        // This is a package or a root namespace.
+        if (!object._edition) {
+            // Make sure that some edition is set if it hasn't already been specified.
+            object._edition = object._defaultEdition;
+        }
+    }
+
+    this._needsRecursiveFeatureResolution = true;
+    this._needsRecursiveResolve = true;
+
+    // Also clear parent caches, since they need to recurse down.
+    var parent = this;
+    while(parent = parent.parent) {
+        parent._needsRecursiveFeatureResolution = true;
+        parent._needsRecursiveResolve = true;
+    }
+
     object.onAdd(this);
     return clearCache(this);
 };
@@ -3471,7 +2913,8 @@ Namespace.prototype.remove = function remove(object) {
     if (object.parent !== this)
         throw Error(object + " is not a member of " + this);
 
-    delete this.nested[object.name];
+    if (!util.remove(this.nested, object, object.name))
+        throw Error(object + " is not a member of " + this);
     if (!Object.keys(this.nested).length)
         this.nested = undefined;
 
@@ -3493,6 +2936,8 @@ Namespace.prototype.define = function define(path, json) {
         throw TypeError("illegal path");
     if (path && path.length && path[0] === "")
         throw Error("path must be relative");
+    if (path.length > util.recursionLimit)
+        throw Error("max depth exceeded");
 
     var ptr = this;
     while (path.length > 0) {
@@ -3514,13 +2959,36 @@ Namespace.prototype.define = function define(path, json) {
  * @returns {Namespace} `this`
  */
 Namespace.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
+    if (this._needsRecursiveFeatureResolution)
+        this._resolveFeaturesRecursive(this._edition);
+
     var nested = this.nestedArray, i = 0;
+    this.resolve();
     while (i < nested.length)
         if (nested[i] instanceof Namespace)
             nested[i++].resolveAll();
         else
             nested[i++].resolve();
-    return this.resolve();
+    this._needsRecursiveResolve = false;
+    return this;
+};
+
+/**
+ * @override
+ */
+Namespace.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+    this._needsRecursiveFeatureResolution = false;
+
+    edition = this._edition || edition;
+
+    ReflectionObject.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.nestedArray.forEach(nested => {
+        nested._resolveFeaturesRecursive(edition);
+    });
+    return this;
 };
 
 /**
@@ -3531,7 +2999,6 @@ Namespace.prototype.resolveAll = function resolveAll() {
  * @returns {ReflectionObject|null} Looked up object or `null` if none could be found
  */
 Namespace.prototype.lookup = function lookup(path, filterTypes, parentAlreadyChecked) {
-
     /* istanbul ignore next */
     if (typeof filterTypes === "boolean") {
         parentAlreadyChecked = filterTypes;
@@ -3546,29 +3013,74 @@ Namespace.prototype.lookup = function lookup(path, filterTypes, parentAlreadyChe
     } else if (!path.length)
         return this;
 
+    var flatPath = path.join(".");
+
     // Start at root if path is absolute
     if (path[0] === "")
         return this.root.lookup(path.slice(1), filterTypes);
 
+    // Lookup at this namespace and below
+    var found = this._lookupImpl(path, flatPath);
+    if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+        return found;
+    }
+
+    // Fall back to respective absolute path once relative scope has been checked (non-standard)
+    found = this.root._fullyQualifiedObjects && this.root._fullyQualifiedObjects["." + flatPath];
+    if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+        return found;
+    }
+
+    if (parentAlreadyChecked)
+        return null;
+
+    // If there hasn't been a match, walk up the tree and look more broadly
+    var current = this;
+    while (current.parent) {
+        found = current.parent._lookupImpl(path, flatPath);
+        if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+            return found;
+        }
+        current = current.parent;
+    }
+    return null;
+};
+
+/**
+ * Internal helper for lookup that handles searching just at this namespace and below along with caching.
+ * @param {string[]} path Path to look up
+ * @param {string} flatPath Flattened version of the path to use as a cache key
+ * @returns {ReflectionObject|null} Looked up object or `null` if none could be found
+ * @private
+ */
+Namespace.prototype._lookupImpl = function lookup(path, flatPath) {
+    if(Object.prototype.hasOwnProperty.call(this._lookupCache, flatPath)) {
+        return this._lookupCache[flatPath];
+    }
+
     // Test if the first part matches any nested object, and if so, traverse if path contains more
     var found = this.get(path[0]);
+    var exact = null;
     if (found) {
         if (path.length === 1) {
-            if (!filterTypes || filterTypes.indexOf(found.constructor) > -1)
-                return found;
-        } else if (found instanceof Namespace && (found = found.lookup(path.slice(1), filterTypes, true)))
-            return found;
+            exact = found;
+        } else if (found instanceof Namespace) {
+            path = path.slice(1);
+            exact = found._lookupImpl(path, path.join("."));
+        }
 
     // Otherwise try each nested namespace
-    } else
+    } else {
         for (var i = 0; i < this.nestedArray.length; ++i)
-            if (this._nestedArray[i] instanceof Namespace && (found = this._nestedArray[i].lookup(path, filterTypes, true)))
-                return found;
+            if (this._nestedArray[i] instanceof Namespace && (found = this._nestedArray[i]._lookupImpl(path, flatPath))) {
+                exact = found;
+                break;
+            }
+    }
 
-    // If there hasn't been a match, try again at the parent
-    if (this.parent === null || parentAlreadyChecked)
-        return null;
-    return this.parent.lookup(path, filterTypes);
+    // Set this even when null, so that when we walk up the tree we can quickly bail on repeated checks back down.
+    this._lookupCache[flatPath] = exact;
+    return exact;
 };
 
 /**
@@ -3645,15 +3157,23 @@ Namespace._configure = function(Type_, Service_, Enum_) {
     Enum    = Enum_;
 };
 
-},{"16":16,"24":24,"25":25,"37":37}],24:[function(require,module,exports){
+},{"15":15,"16":16,"28":28,"7":7}],15:[function(require,module,exports){
 "use strict";
 module.exports = ReflectionObject;
 
 ReflectionObject.className = "ReflectionObject";
 
-var util = require(37);
+const OneOf = require(16);
+var util = require(28);
 
 var Root; // cyclic
+
+/* eslint-disable no-warning-comments */
+// TODO: Replace with embedded proto.
+var editions2024Defaults = {enum_type: "OPEN", field_presence: "EXPLICIT", json_format: "ALLOW", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "PACKED", utf8_validation: "VERIFY", enforce_naming_style: "STYLE2024", default_symbol_visibility: "EXPORT_TOP_LEVEL" };
+var editions2023Defaults = {enum_type: "OPEN", field_presence: "EXPLICIT", json_format: "ALLOW", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "PACKED", utf8_validation: "VERIFY", enforce_naming_style: "STYLE_LEGACY", default_symbol_visibility: "EXPORT_ALL" };
+var proto2Defaults = {enum_type: "CLOSED", field_presence: "EXPLICIT", json_format: "LEGACY_BEST_EFFORT", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "EXPANDED", utf8_validation: "NONE", enforce_naming_style: "STYLE_LEGACY", default_symbol_visibility: "EXPORT_ALL" };
+var proto3Defaults = {enum_type: "OPEN", field_presence: "IMPLICIT", json_format: "ALLOW", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "PACKED", utf8_validation: "VERIFY", enforce_naming_style: "STYLE_LEGACY", default_symbol_visibility: "EXPORT_ALL" };
 
 /**
  * Constructs a new reflection object instance.
@@ -3688,6 +3208,35 @@ function ReflectionObject(name, options) {
      * @type {string}
      */
     this.name = name;
+
+    /**
+     * The edition specified for this object.  Only relevant for top-level objects.
+     * @type {string}
+     * @private
+     */
+    this._edition = null;
+
+    /**
+     * The default edition to use for this object if none is specified.  For legacy reasons,
+     * this is proto2 except in the JSON parsing case where it was proto3.
+     * @type {string}
+     * @private
+     */
+    this._defaultEdition = "proto2";
+
+    /**
+     * Resolved Features.
+     * @type {object}
+     * @private
+     */
+    this._features = {};
+
+    /**
+     * Whether or not features have been resolved.
+     * @type {boolean}
+     * @private
+     */
+    this._featuresResolved = false;
 
     /**
      * Parent namespace.
@@ -3753,7 +3302,6 @@ Object.defineProperties(ReflectionObject.prototype, {
 /**
  * Converts this reflection object to its descriptor representation.
  * @returns {Object.<string,*>} Descriptor
- * @abstract
  */
 ReflectionObject.prototype.toJSON = /* istanbul ignore next */ function toJSON() {
     throw Error(); // not implemented, shouldn't happen
@@ -3800,12 +3348,89 @@ ReflectionObject.prototype.resolve = function resolve() {
 };
 
 /**
+ * Resolves this objects editions features.
+ * @param {string} edition The edition we're currently resolving for.
+ * @returns {ReflectionObject} `this`
+ */
+ReflectionObject.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    return this._resolveFeatures(this._edition || edition);
+};
+
+/**
+ * Resolves child features from parent features
+ * @param {string} edition The edition we're currently resolving for.
+ * @returns {undefined}
+ */
+ReflectionObject.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    if (this._featuresResolved) {
+        return;
+    }
+
+    var defaults = {};
+
+    /* istanbul ignore if */
+    if (!edition) {
+        throw new Error("Unknown edition for " + this.fullName);
+    }
+
+    var protoFeatures = util.merge({}, this.options && this.options.features,
+        this._inferLegacyProtoFeatures(edition));
+
+    if (this._edition) {
+        // For a namespace marked with a specific edition, reset defaults.
+        /* istanbul ignore else */
+        if (edition === "proto2") {
+            defaults = Object.assign({}, proto2Defaults);
+        } else if (edition === "proto3") {
+            defaults = Object.assign({}, proto3Defaults);
+        } else if (edition === "2023") {
+            defaults = Object.assign({}, editions2023Defaults);
+        } else if (edition === "2024") {
+            defaults = Object.assign({}, editions2024Defaults);
+        } else {
+            throw new Error("Unknown edition: " + edition);
+        }
+        this._features = util.merge(defaults, protoFeatures);
+    } else {
+        // fields in Oneofs aren't actually children of them, so we have to
+        // special-case it
+        /* istanbul ignore else */
+        if (this.partOf instanceof OneOf) {
+            var lexicalParentFeaturesCopy = util.merge({}, this.partOf._features);
+            this._features = util.merge(lexicalParentFeaturesCopy, protoFeatures);
+        } else if (this.declaringField) {
+            // Skip feature resolution of sister fields.
+        } else if (this.parent) {
+            var parentFeaturesCopy = util.merge({}, this.parent._features);
+            this._features = util.merge(parentFeaturesCopy, protoFeatures);
+        } else {
+            throw new Error("Unable to find a parent for " + this.fullName);
+        }
+    }
+    if (this.extensionField) {
+        // Sister fields should have the same features as their extensions.
+        this.extensionField._features = this._features;
+    }
+    this._featuresResolved = true;
+};
+
+/**
+ * Infers features from legacy syntax that may have been specified differently.
+ * in older editions.
+ * @param {string|undefined} edition The edition this proto is on, or undefined if pre-editions
+ * @returns {object} The feature values to override
+ */
+ReflectionObject.prototype._inferLegacyProtoFeatures = function _inferLegacyProtoFeatures(/*edition*/) {
+    return {};
+};
+
+/**
  * Gets an option value.
  * @param {string} name Option name
  * @returns {*} Option value or `undefined` if not set
  */
 ReflectionObject.prototype.getOption = function getOption(name) {
-    if (this.options)
+    if (this.options && Object.prototype.hasOwnProperty.call(this.options, name))
         return this.options[name];
     return undefined;
 };
@@ -3814,12 +3439,24 @@ ReflectionObject.prototype.getOption = function getOption(name) {
  * Sets an option.
  * @param {string} name Option name
  * @param {*} value Option value
- * @param {boolean} [ifNotSet] Sets the option only if it isn't currently set
+ * @param {boolean|undefined} [ifNotSet] Sets the option only if it isn't currently set
  * @returns {ReflectionObject} `this`
  */
 ReflectionObject.prototype.setOption = function setOption(name, value, ifNotSet) {
-    if (!ifNotSet || !this.options || this.options[name] === undefined)
-        (this.options || (this.options = {}))[name] = value;
+    if (name === "__proto__")
+        return this;
+    if (!this.options)
+        this.options = {};
+    if (/^features\./.test(name)) {
+        util.setProperty(this.options, name, value, ifNotSet);
+    } else {
+        var prev = this.getOption(name);
+        if (!ifNotSet || prev === undefined) {
+            if (prev !== value) this.resolved = false;
+            this.options[name] = value;
+        }
+    }
+
     return this;
 };
 
@@ -3831,6 +3468,8 @@ ReflectionObject.prototype.setOption = function setOption(name, value, ifNotSet)
  * @returns {ReflectionObject} `this`
  */
 ReflectionObject.prototype.setParsedOption = function setParsedOption(name, value, propName) {
+    if (name === "__proto__")
+        return this;
     if (!this.parsedOptions) {
         this.parsedOptions = [];
     }
@@ -3843,10 +3482,11 @@ ReflectionObject.prototype.setParsedOption = function setParsedOption(name, valu
         });
         if (opt) {
             // If we found an existing option - just merge the property value
+            // (If it's a feature, will just write over)
             var newValue = opt[name];
             util.setProperty(newValue, propName, value);
         } else {
-            // otherwise, create a new option, set it's property and add it to the list
+            // otherwise, create a new option, set its property and add it to the list
             opt = {};
             opt[name] = util.setProperty({}, propName, value);
             parsedOptions.push(opt);
@@ -3857,6 +3497,7 @@ ReflectionObject.prototype.setParsedOption = function setParsedOption(name, valu
         newOpt[name] = value;
         parsedOptions.push(newOpt);
     }
+
     return this;
 };
 
@@ -3875,14 +3516,34 @@ ReflectionObject.prototype.setOptions = function setOptions(options, ifNotSet) {
 
 /**
  * Converts this instance to its string representation.
+ * @name ReflectionObject#toString
+ * @function
  * @returns {string} Class name[, space, full name]
  */
-ReflectionObject.prototype.toString = function toString() {
-    var className = this.constructor.className,
-        fullName  = this.fullName;
-    if (fullName.length)
-        return className + " " + fullName;
-    return className;
+Object.defineProperty(ReflectionObject.prototype, "toString", {
+    value: function toString() {
+        var className = this.constructor.className,
+            fullName  = this.fullName;
+        if (fullName.length)
+            return className + " " + fullName;
+        return className;
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true
+});
+
+/**
+ * Converts the edition this object is pinned to for JSON format.
+ * @returns {string|undefined} The edition string for JSON representation
+ */
+ReflectionObject.prototype._editionToJSON = function _editionToJSON() {
+    if (!this._edition || this._edition === "proto3") {
+        // Avoid emitting proto3 since we need to default to it for backwards
+        // compatibility anyway.
+        return undefined;
+    }
+    return this._edition;
 };
 
 // Sets up cyclic dependencies (called in index-light)
@@ -3890,16 +3551,24 @@ ReflectionObject._configure = function(Root_) {
     Root = Root_;
 };
 
-},{"37":37}],25:[function(require,module,exports){
+},{"16":16,"28":28}],16:[function(require,module,exports){
 "use strict";
 module.exports = OneOf;
 
 // extends ReflectionObject
-var ReflectionObject = require(24);
-((OneOf.prototype = Object.create(ReflectionObject.prototype)).constructor = OneOf).className = "OneOf";
+var ReflectionObject = require(15);
+OneOf.prototype = Object.create(ReflectionObject.prototype, {
+    constructor: {
+        value: OneOf,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+OneOf.className = "OneOf";
 
-var Field = require(16),
-    util  = require(37);
+var Field = require(7),
+    util  = require(28);
 
 /**
  * Constructs a new oneof instance.
@@ -3947,6 +3616,7 @@ function OneOf(name, fieldNames, options, comment) {
  * @interface IOneOf
  * @property {Array.<string>} oneof Oneof field names
  * @property {Object.<string,*>} [options] Oneof options
+ * @property {string|null} [comment] Oneof comment
  */
 
 /**
@@ -4065,12 +3735,32 @@ OneOf.prototype.onRemove = function onRemove(parent) {
 };
 
 /**
+ * Determines whether this field corresponds to a synthetic oneof created for
+ * a proto3 optional field.  No behavioral logic should depend on this, but it
+ * can be relevant for reflection.
+ * @name OneOf#isProto3Optional
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(OneOf.prototype, "isProto3Optional", {
+    get: function() {
+        if (this.fieldsArray == null || this.fieldsArray.length !== 1) {
+            return false;
+        }
+
+        var field = this.fieldsArray[0];
+        return field.options != null && field.options["proto3_optional"] === true;
+    }
+});
+
+/**
  * Decorator function as returned by {@link OneOf.d} (TypeScript).
  * @typedef OneOfDecorator
  * @type {function}
  * @param {Object} prototype Target prototype
  * @param {string} oneofName OneOf name
  * @returns {undefined}
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 
 /**
@@ -4079,6 +3769,7 @@ OneOf.prototype.onRemove = function onRemove(parent) {
  * @param {...string} fieldNames Field names
  * @returns {OneOfDecorator} Decorator function
  * @template T extends string
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 OneOf.d = function decorateOneOf() {
     var fieldNames = new Array(arguments.length),
@@ -4095,24 +3786,25 @@ OneOf.d = function decorateOneOf() {
     };
 };
 
-},{"16":16,"24":24,"37":37}],26:[function(require,module,exports){
+},{"15":15,"28":28,"7":7}],17:[function(require,module,exports){
 "use strict";
 module.exports = parse;
 
 parse.filename = null;
 parse.defaults = { keepCase: false };
 
-var tokenize  = require(34),
-    Root      = require(29),
-    Type      = require(35),
-    Field     = require(16),
-    MapField  = require(20),
-    OneOf     = require(25),
-    Enum      = require(15),
-    Service   = require(33),
-    Method    = require(22),
-    types     = require(36),
-    util      = require(37);
+var tokenize  = require(25),
+    Root      = require(20),
+    Type      = require(26),
+    Field     = require(7),
+    MapField  = require(11),
+    OneOf     = require(16),
+    Enum      = require(6),
+    Service   = require(24),
+    Method    = require(13),
+    ReflectionObject = require(15),
+    types     = require(27),
+    util      = require(28);
 
 var base10Re    = /^[1-9][0-9]*$/,
     base10NegRe = /^-?[1-9][0-9]*$/,
@@ -4120,10 +3812,12 @@ var base10Re    = /^[1-9][0-9]*$/,
     base16NegRe = /^-?0[x][0-9a-fA-F]+$/,
     base8Re     = /^0[0-7]+$/,
     base8NegRe  = /^-?0[0-7]+$/,
-    numberRe    = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/,
+    numberRe    = util.patterns.numberRe,
     nameRe      = /^[a-zA-Z_][a-zA-Z_0-9]*$/,
-    typeRefRe   = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/,
-    fqTypeRefRe = /^(?:\.[a-zA-Z_][a-zA-Z_0-9]*)+$/;
+    typeRefRe   = util.patterns.typeRefRe;
+
+var maxFieldId = 536870911, // 2^29 - 1
+    maxEnumId = 2147483647; // 2^31 - 1
 
 /**
  * Result object returned from {@link parse}.
@@ -4131,7 +3825,6 @@ var base10Re    = /^[1-9][0-9]*$/,
  * @property {string|undefined} package Package name, if declared
  * @property {string[]|undefined} imports Imports, if any
  * @property {string[]|undefined} weakImports Weak imports, if any
- * @property {string|undefined} syntax Syntax, if specified (either `"proto2"` or `"proto3"`)
  * @property {Root} root Populated root instance
  */
 
@@ -4179,12 +3872,24 @@ function parse(source, root, options) {
         pkg,
         imports,
         weakImports,
-        syntax,
-        isProto3 = false;
+        edition = "proto2";
 
     var ptr = root;
 
+    var topLevelObjects = [];
+    var topLevelOptions = {};
+
     var applyCase = options.keepCase ? function(name) { return name; } : util.camelCase;
+
+    function resolveFileFeatures() {
+        topLevelObjects.forEach(obj => {
+            obj._edition = edition;
+            Object.keys(topLevelOptions).forEach(opt => {
+                if (obj.getOption(opt) !== undefined) return;
+                obj.setOption(opt, topLevelOptions[opt], true);
+            });
+        });
+    }
 
     /* istanbul ignore next */
     function illegal(token, name, insideTryCatch) {
@@ -4224,7 +3929,6 @@ function parse(source, root, options) {
         try {
             return parseNumber(token, /* insideTryCatch */ true);
         } catch (e) {
-
             /* istanbul ignore else */
             if (acceptTypeRef && typeRefRe.test(token))
                 return token;
@@ -4234,15 +3938,45 @@ function parse(source, root, options) {
         }
     }
 
-    function readRanges(target, acceptStrings) {
+    function readRanges(target, acceptStrings, max, acceptNegative) {
         var token, start;
         do {
-            if (acceptStrings && ((token = peek()) === "\"" || token === "'"))
-                target.push(readString());
-            else
-                target.push([ start = parseId(next()), skip("to", true) ? parseId(next()) : start ]);
+            if (acceptStrings && ((token = peek()) === "\"" || token === "'")) {
+                var str = readString();
+                target.push(str);
+                if (edition >= 2023) {
+                    throw illegal(str, "id");
+                }
+            } else {
+                try {
+                    target.push([ start = parseId(next(), acceptNegative, max), skip("to", true) ? parseId(next(), acceptNegative, max) : start ]);
+                } catch (err) {
+                    if (acceptStrings && typeRefRe.test(token) && edition >= 2023) {
+                        target.push(token);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
         } while (skip(",", true));
-        skip(";");
+        var dummy = {options: undefined};
+        dummy.setOption = function(name, value) {
+          if (this.options === undefined) this.options = {};
+          this.options[name] = value;
+        };
+        ifBlock(
+            dummy,
+            function parseRange_block(token) {
+              /* istanbul ignore else */
+              if (token === "option") {
+                parseOption(dummy, token);  // skip
+                skip(";");
+              } else
+                throw illegal(token);
+            },
+            function parseRange_line() {
+              parseInlineOptions(dummy);  // skip
+            });
     }
 
     function parseNumber(token, insideTryCatch) {
@@ -4274,10 +4008,10 @@ function parse(source, root, options) {
         throw illegal(token, "number", insideTryCatch);
     }
 
-    function parseId(token, acceptNegative) {
+    function parseId(token, acceptNegative, max) {
         switch (token) {
             case "max": case "MAX": case "Max":
-                return 536870911;
+                return max || maxFieldId;
             case "0":
                 return 0;
         }
@@ -4300,7 +4034,6 @@ function parse(source, root, options) {
     }
 
     function parsePackage() {
-
         /* istanbul ignore if */
         if (pkg !== undefined)
             throw illegal("package");
@@ -4312,6 +4045,7 @@ function parse(source, root, options) {
             throw illegal(pkg, "name");
 
         ptr = ptr.define(pkg);
+
         skip(";");
     }
 
@@ -4319,13 +4053,23 @@ function parse(source, root, options) {
         var token = peek();
         var whichImports;
         switch (token) {
+            case "option":
+                if (edition < "2024") {
+                    throw illegal("option");
+                }
+                // Import options are only used for resolving options, which we don't
+                // do.  We can just throw them out.
+                next();
+                readString();
+                skip(";");
+                return;
             case "weak":
                 whichImports = weakImports || (weakImports = []);
                 next();
                 break;
             case "public":
                 next();
-                // eslint-disable-line no-fallthrough
+                // eslint-disable-next-line no-fallthrough
             default:
                 whichImports = imports || (imports = []);
                 break;
@@ -4337,17 +4081,32 @@ function parse(source, root, options) {
 
     function parseSyntax() {
         skip("=");
-        syntax = readString();
-        isProto3 = syntax === "proto3";
+        edition = readString();
 
         /* istanbul ignore if */
-        if (!isProto3 && syntax !== "proto2")
-            throw illegal(syntax, "syntax");
+        if (edition < 2023)
+            throw illegal(edition, "syntax");
 
         skip(";");
     }
 
-    function parseCommon(parent, token) {
+    function parseEdition() {
+        skip("=");
+        edition = readString();
+        const supportedEditions = ["2023", "2024"];
+
+        /* istanbul ignore if */
+        if (!supportedEditions.includes(edition))
+            throw illegal(edition, "edition");
+
+        skip(";");
+    }
+
+
+    function parseCommon(parent, token, depth) {
+        if (depth === undefined)
+            depth = 0;
+        // depth is checked by dispatched functions
         switch (token) {
 
             case "option":
@@ -4356,19 +4115,35 @@ function parse(source, root, options) {
                 return true;
 
             case "message":
-                parseType(parent, token);
+                parseType(parent, token, depth + 1);
                 return true;
 
             case "enum":
                 parseEnum(parent, token);
                 return true;
 
+            case "export":
+            case "local":
+                if (edition < "2024") {
+                    return false;
+                }
+                token = next();
+                if (token === "export" || token === "local") {
+                    return false;
+                }
+                if (token !== "message" && token !== "enum") {
+                    return false;
+                }
+                /* eslint-disable no-warning-comments */
+                // TODO: actually enforce visiblity modifiers like protoc does.
+                return parseCommon(parent, token, depth);
+
             case "service":
-                parseService(parent, token);
+                parseService(parent, token, depth + 1);
                 return true;
 
             case "extend":
-                parseExtension(parent, token);
+                parseExtension(parent, token, depth);
                 return true;
         }
         return false;
@@ -4396,7 +4171,11 @@ function parse(source, root, options) {
         }
     }
 
-    function parseType(parent, token) {
+    function parseType(parent, token, depth) {
+        if (depth === undefined)
+            depth = 0;
+        if (depth > util.nestingLimit)
+            throw Error("max depth exceeded");
 
         /* istanbul ignore if */
         if (!nameRe.test(token = next()))
@@ -4404,31 +4183,39 @@ function parse(source, root, options) {
 
         var type = new Type(token);
         ifBlock(type, function parseType_block(token) {
-            if (parseCommon(type, token))
+            if (parseCommon(type, token, depth))
                 return;
 
             switch (token) {
+
+                case ";":
+                    break;
 
                 case "map":
                     parseMapField(type, token);
                     break;
 
                 case "required":
+                    if (edition !== "proto2")
+                        throw illegal(token);
+                /* eslint-disable no-fallthrough */
                 case "repeated":
-                    parseField(type, token);
+                    parseField(type, token, undefined, depth + 1);
                     break;
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
-                        parseField(type, "proto3_optional");
+                    if (edition === "proto3") {
+                        parseField(type, "proto3_optional", undefined, depth + 1);
+                    } else if (edition !== "proto2") {
+                        throw illegal(token);
                     } else {
-                        parseField(type, "optional");
+                        parseField(type, "optional", undefined, depth + 1);
                     }
                     break;
 
                 case "oneof":
-                    parseOneOf(type, token);
+                    parseOneOf(type, token, depth + 1);
                     break;
 
                 case "extensions":
@@ -4441,22 +4228,36 @@ function parse(source, root, options) {
 
                 default:
                     /* istanbul ignore if */
-                    if (!isProto3 || !typeRefRe.test(token))
+                    if (edition === "proto2" || !typeRefRe.test(token)) {
                         throw illegal(token);
+                    }
 
                     push(token);
-                    parseField(type, "optional");
+                    parseField(type, "optional", undefined, depth + 1);
                     break;
             }
         });
         parent.add(type);
+        if (parent === ptr) {
+            topLevelObjects.push(type);
+        }
     }
 
-    function parseField(parent, rule, extend) {
+    function parseField(parent, rule, extend, depth) {
         var type = next();
         if (type === "group") {
-            parseGroup(parent, rule);
+            parseGroup(parent, rule, extend, depth);
             return;
+        }
+        // Type names can consume multiple tokens, in multiple variants:
+        //    package.subpackage   field       tokens: "package.subpackage" [TYPE NAME ENDS HERE] "field"
+        //    package . subpackage field       tokens: "package" "." "subpackage" [TYPE NAME ENDS HERE] "field"
+        //    package.  subpackage field       tokens: "package." "subpackage" [TYPE NAME ENDS HERE] "field"
+        //    package  .subpackage field       tokens: "package" ".subpackage" [TYPE NAME ENDS HERE] "field"
+        // Keep reading tokens until we get a type name with no period at the end,
+        // and the next token does not start with a period.
+        while (type.endsWith(".") || peek().startsWith(".")) {
+            type += next();
         }
 
         /* istanbul ignore if */
@@ -4466,13 +4267,18 @@ function parse(source, root, options) {
         var name = next();
 
         /* istanbul ignore if */
+
         if (!nameRe.test(name))
             throw illegal(name, "name");
 
+        var protoName = name;
         name = applyCase(name);
         skip("=");
 
-        var field = new Field(name, parseId(next()), type, rule, extend);
+        var field = new Field(name, parseId(next()), type, rule === "proto3_optional" ? "optional" : rule, extend);
+        if (protoName !== name)
+            field.protoName = protoName;
+
         ifBlock(field, function parseField_block(token) {
 
             /* istanbul ignore else */
@@ -4495,15 +4301,19 @@ function parse(source, root, options) {
         } else {
             parent.add(field);
         }
-
-        // JSON defaults to packed=true if not set so we have to set packed=false explicity when
-        // parsing proto2 descriptors without the option, where applicable. This must be done for
-        // all known packable types and anything that could be an enum (= is not a basic type).
-        if (!isProto3 && field.repeated && (types.packed[type] !== undefined || types.basic[type] === undefined))
-            field.setOption("packed", false, /* ifNotSet */ true);
+        if (parent === ptr) {
+            topLevelObjects.push(field);
+        }
     }
 
-    function parseGroup(parent, rule) {
+    function parseGroup(parent, rule, extend, depth) {
+        if (depth === undefined)
+            depth = 0;
+        if (depth > util.nestingLimit)
+            throw Error("max depth exceeded");
+        if (edition >= 2023) {
+            throw illegal("group");
+        }
         var name = next();
 
         /* istanbul ignore if */
@@ -4517,36 +4327,60 @@ function parse(source, root, options) {
         var id = parseId(next());
         var type = new Type(name);
         type.group = true;
-        var field = new Field(fieldName, id, name, rule);
+        var field = new Field(fieldName, id, name, rule, extend);
         field.filename = parse.filename;
         ifBlock(type, function parseGroup_block(token) {
             switch (token) {
+
+                case ";":
+                    break;
 
                 case "option":
                     parseOption(type, token);
                     skip(";");
                     break;
-
                 case "required":
                 case "repeated":
-                    parseField(type, token);
+                    parseField(type, token, undefined, depth + 1);
                     break;
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
-                        parseField(type, "proto3_optional");
+                    if (edition === "proto3") {
+                        parseField(type, "proto3_optional", undefined, depth + 1);
                     } else {
-                        parseField(type, "optional");
+                        parseField(type, "optional", undefined, depth + 1);
                     }
                     break;
 
                 case "message":
-                    parseType(type, token);
+                    parseType(type, token, depth + 1);
                     break;
 
                 case "enum":
                     parseEnum(type, token);
+                    break;
+
+                case "reserved":
+                    readRanges(type.reserved || (type.reserved = []), true);
+                    break;
+
+                case "export":
+                case "local":
+                    if (edition < "2024") {
+                        throw illegal(token);
+                    }
+                    token = next();
+                    switch (token) {
+                        case "message":
+                            parseType(type, token, depth + 1);
+                            break;
+                        case "enum":
+                            parseType(type, token, depth + 1);
+                            break;
+                        default:
+                            throw illegal(token);
+                    }
                     break;
 
                 /* istanbul ignore next */
@@ -4556,6 +4390,10 @@ function parse(source, root, options) {
         });
         parent.add(type)
               .add(field);
+        if (parent === ptr) {
+            topLevelObjects.push(type);
+            topLevelObjects.push(field);
+        }
     }
 
     function parseMapField(parent) {
@@ -4581,7 +4419,11 @@ function parse(source, root, options) {
             throw illegal(name, "name");
 
         skip("=");
-        var field = new MapField(applyCase(name), parseId(next()), keyType, valueType);
+        var protoName = name;
+        name = applyCase(name);
+        var field = new MapField(name, parseId(next()), keyType, valueType);
+        if (protoName !== name)
+            field.protoName = protoName;
         ifBlock(field, function parseMapField_block(token) {
 
             /* istanbul ignore else */
@@ -4597,7 +4439,7 @@ function parse(source, root, options) {
         parent.add(field);
     }
 
-    function parseOneOf(parent, token) {
+    function parseOneOf(parent, token, depth) {
 
         /* istanbul ignore if */
         if (!nameRe.test(token = next()))
@@ -4610,7 +4452,7 @@ function parse(source, root, options) {
                 skip(";");
             } else {
                 push(token);
-                parseField(oneof, "optional");
+                parseField(oneof, "optional", undefined, depth);
             }
         });
         parent.add(oneof);
@@ -4625,13 +4467,17 @@ function parse(source, root, options) {
         var enm = new Enum(token);
         ifBlock(enm, function parseEnum_block(token) {
           switch(token) {
+            case ";":
+              break;
+
             case "option":
               parseOption(enm, token);
               skip(";");
               break;
 
             case "reserved":
-              readRanges(enm.reserved || (enm.reserved = []), true);
+              readRanges(enm.reserved || (enm.reserved = []), true, maxEnumId, true);
+              if(enm.reserved === undefined) enm.reserved = [];
               break;
 
             default:
@@ -4639,6 +4485,9 @@ function parse(source, root, options) {
           }
         });
         parent.add(enm);
+        if (parent === ptr) {
+            topLevelObjects.push(enm);
+        }
     }
 
     function parseEnumValue(parent, token) {
@@ -4652,10 +4501,14 @@ function parse(source, root, options) {
             dummy = {
                 options: undefined
             };
+        dummy.getOption = function(name) {
+            return this.options[name];
+        };
         dummy.setOption = function(name, value) {
-            if (this.options === undefined)
-                this.options = {};
-            this.options[name] = value;
+            ReflectionObject.prototype.setOption.call(dummy, name, value);
+        };
+        dummy.setParsedOption = function() {
+            return undefined;
         };
         ifBlock(dummy, function parseEnumValue_block(token) {
 
@@ -4669,37 +4522,52 @@ function parse(source, root, options) {
         }, function parseEnumValue_line() {
             parseInlineOptions(dummy); // skip
         });
-        parent.add(token, value, dummy.comment, dummy.options);
+        parent.add(token, value, dummy.comment, dummy.parsedOptions || dummy.options);
     }
 
     function parseOption(parent, token) {
-        var isCustom = skip("(", true);
-
-        /* istanbul ignore if */
-        if (!typeRefRe.test(token = next()))
-            throw illegal(token, "name");
-
-        var name = token;
-        var option = name;
-        var propName;
-
-        if (isCustom) {
-            skip(")");
-            name = "(" + name + ")";
-            option = name;
-            token = peek();
-            if (fqTypeRefRe.test(token)) {
-                propName = token.slice(1); //remove '.' before property name
-                name += token;
-                next();
+            var option;
+            var propName;
+            var isOption = true;
+            if (token === "option") {
+                token = next();
             }
-        }
-        skip("=");
-        var optionValue = parseOptionValue(parent, name);
-        setParsedOption(parent, option, optionValue, propName);
+
+            while (token !== "=") {
+                if (token === null) {
+                    throw illegal(token, "end of input");
+                }
+                if (token === "(") {
+                    var parensValue = next();
+                    skip(")");
+                    token = "(" + parensValue + ")";
+                }
+                if (isOption) {
+                    isOption = false;
+                    if (token.includes(".") && !token.includes("(")) {
+                        var tokens = token.split(".");
+                        option = tokens[0] + ".";
+                        token = tokens[1];
+                        continue;
+                    }
+                    option = token;
+                } else {
+                    propName = propName ? propName += token : token;
+                }
+                token = next();
+            }
+            var name = propName ? option.concat(propName) : option;
+            var optionValue = parseOptionValue(parent, name);
+            propName = propName && propName[0] === "." ? propName.slice(1) : propName;
+            option = option && option[option.length - 1] === "." ? option.slice(0, -1) : option;
+            setParsedOption(parent, option, optionValue, propName);
     }
 
-    function parseOptionValue(parent, name) {
+    function parseOptionValue(parent, name, depth) {
+        if (depth === undefined)
+            depth = 0;
+        if (depth > util.recursionLimit)
+            throw Error("max depth exceeded");
         // { a: "foo" b { c: "bar" } }
         if (skip("{", true)) {
             var objectResult = {};
@@ -4709,28 +4577,33 @@ function parse(source, root, options) {
                 if (!nameRe.test(token = next())) {
                     throw illegal(token, "name");
                 }
+                if (token === null) {
+                  throw illegal(token, "end of input");
+                }
 
                 var value;
                 var propName = token;
 
                 skip(":", true);
 
-                if (peek() === "{")
-                    value = parseOptionValue(parent, name + "." + token);
-                else if (peek() === "[") {
+                if (peek() === "{") {
                     // option (my_option) = {
                     //     repeated_value: [ "foo", "bar" ]
                     // };
+                    value = parseOptionValue(parent, name + "." + token, depth + 1);
+                } else if (peek() === "[") {
                     value = [];
                     var lastValue;
                     if (skip("[", true)) {
-                        do {
-                            lastValue = readValue(true);
-                            value.push(lastValue);
-                        } while (skip(",", true));
-                        skip("]");
-                        if (typeof lastValue !== "undefined") {
-                            setOption(parent, name + "." + token, lastValue);
+                        if (!skip("]", true)) {
+                            do {
+                                lastValue = readValue(true);
+                                value.push(lastValue);
+                            } while (skip(",", true));
+                            skip("]");
+                            if (typeof lastValue !== "undefined") {
+                                setOption(parent, name + "." + token, lastValue);
+                            }
                         }
                     }
                 } else {
@@ -4738,12 +4611,15 @@ function parse(source, root, options) {
                     setOption(parent, name + "." + token, value);
                 }
 
-                var prevValue = objectResult[propName];
+                var prevValue = Object.prototype.hasOwnProperty.call(objectResult, propName)
+                    ? objectResult[propName]
+                    : undefined;
 
                 if (prevValue)
                     value = [].concat(prevValue).concat(value);
 
-                objectResult[propName] = value;
+                if (propName !== "__proto__")
+                    objectResult[propName] = value;
 
                 // Semicolons and commas can be optional
                 skip(",", true);
@@ -4760,11 +4636,22 @@ function parse(source, root, options) {
     }
 
     function setOption(parent, name, value) {
+        if (ptr === parent && /^features\./.test(name)) {
+            topLevelOptions[name] = value;
+            return;
+        }
+        // lift json_name onto Field
+        if (name === "json_name" && parent instanceof Field) {
+            parent.jsonName = value;
+            return;
+        }
         if (parent.setOption)
             parent.setOption(name, value);
     }
 
     function setParsedOption(parent, name, value, propName) {
+        if (name === "json_name" && parent instanceof Field)
+            return; // lifted onto Field#jsonName above
         if (parent.setParsedOption)
             parent.setParsedOption(name, value, propName);
     }
@@ -4779,7 +4666,11 @@ function parse(source, root, options) {
         return parent;
     }
 
-    function parseService(parent, token) {
+    function parseService(parent, token, depth) {
+        if (depth === undefined)
+            depth = 0;
+        if (depth > util.recursionLimit)
+            throw Error("max depth exceeded");
 
         /* istanbul ignore if */
         if (!nameRe.test(token = next()))
@@ -4787,16 +4678,22 @@ function parse(source, root, options) {
 
         var service = new Service(token);
         ifBlock(service, function parseService_block(token) {
-            if (parseCommon(service, token))
+            if (parseCommon(service, token, depth)) {
                 return;
+            }
 
             /* istanbul ignore else */
+            if (token === ";")
+                return;
             if (token === "rpc")
                 parseMethod(service, token);
             else
                 throw illegal(token);
         });
         parent.add(service);
+        if (parent === ptr) {
+            topLevelObjects.push(service);
+        }
     }
 
     function parseMethod(parent, token) {
@@ -4839,6 +4736,8 @@ function parse(source, root, options) {
         ifBlock(method, function parseMethod_block(token) {
 
             /* istanbul ignore else */
+            if (token === ";")
+                return;
             if (token === "option") {
                 parseOption(method, token);
                 skip(";");
@@ -4849,7 +4748,7 @@ function parse(source, root, options) {
         parent.add(method);
     }
 
-    function parseExtension(parent, token) {
+    function parseExtension(parent, token, depth) {
 
         /* istanbul ignore if */
         if (!typeRefRe.test(token = next()))
@@ -4861,24 +4760,24 @@ function parse(source, root, options) {
 
                 case "required":
                 case "repeated":
-                    parseField(parent, token, reference);
+                    parseField(parent, token, reference, depth + 1);
                     break;
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
-                        parseField(parent, "proto3_optional", reference);
+                    if (edition === "proto3") {
+                        parseField(parent, "proto3_optional", reference, depth + 1);
                     } else {
-                        parseField(parent, "optional", reference);
+                        parseField(parent, "optional", reference, depth + 1);
                     }
                     break;
 
                 default:
                     /* istanbul ignore if */
-                    if (!isProto3 || !typeRefRe.test(token))
+                    if (edition === "proto2" || !typeRefRe.test(token))
                         throw illegal(token);
                     push(token);
-                    parseField(parent, "optional", reference);
+                    parseField(parent, "optional", reference, depth + 1);
                     break;
             }
         });
@@ -4887,6 +4786,9 @@ function parse(source, root, options) {
     var token;
     while ((token = next()) !== null) {
         switch (token) {
+
+            case ";":
+                break;
 
             case "package":
 
@@ -4898,10 +4800,6 @@ function parse(source, root, options) {
                 break;
 
             case "import":
-
-                /* istanbul ignore if */
-                if (!head)
-                    throw illegal(token);
 
                 parseImport();
                 break;
@@ -4915,16 +4813,22 @@ function parse(source, root, options) {
                 parseSyntax();
                 break;
 
-            case "option":
+            case "edition":
+                /* istanbul ignore if */
+                if (!head)
+                    throw illegal(token);
+                parseEdition();
+                break;
 
+            case "option":
                 parseOption(ptr, token);
-                skip(";");
+                skip(";", true);
                 break;
 
             default:
 
                 /* istanbul ignore else */
-                if (parseCommon(ptr, token)) {
+                if (parseCommon(ptr, token, 0)) {
                     head = false;
                     continue;
                 }
@@ -4934,12 +4838,13 @@ function parse(source, root, options) {
         }
     }
 
+    resolveFileFeatures();
+
     parse.filename = null;
     return {
         "package"     : pkg,
         "imports"     : imports,
          weakImports  : weakImports,
-         syntax       : syntax,
          root         : root
     };
 }
@@ -4956,11 +4861,11 @@ function parse(source, root, options) {
  * @variation 2
  */
 
-},{"15":15,"16":16,"20":20,"22":22,"25":25,"29":29,"33":33,"34":34,"35":35,"36":36,"37":37}],27:[function(require,module,exports){
+},{"11":11,"13":13,"15":15,"16":16,"20":20,"24":24,"25":25,"26":26,"27":27,"28":28,"6":6,"7":7}],18:[function(require,module,exports){
 "use strict";
 module.exports = Reader;
 
-var util      = require(39);
+var util      = require(37);
 
 var BufferReader; // cyclic
 
@@ -4997,6 +4902,12 @@ function Reader(buffer) {
      * @type {number}
      */
     this.len = buffer.length;
+
+    /**
+     * Whether to discard unknown fields while decoding.
+     * @type {boolean}
+     */
+    this.discardUnknown = Reader.discardUnknown;
 }
 
 var create_array = typeof Uint8Array !== "undefined"
@@ -5038,27 +4949,107 @@ Reader.create = create();
 Reader.prototype._slice = util.Array.prototype.subarray || /* istanbul ignore next */ util.Array.prototype.slice;
 
 /**
+ * Returns raw bytes from the backing buffer without advancing the reader.
+ * @param {number} start Start offset
+ * @param {number} end End offset
+ * @returns {Uint8Array} Raw bytes
+ */
+Reader.prototype.raw = function read_raw(start, end) {
+    if (Array.isArray(this.buf)) // plain array
+        return this.buf.slice(start, end);
+
+    if (start === end) // fix for IE 10/Win8 and others' subarray returning array of size 1
+        return new this.buf.constructor(0);
+    return this._slice.call(this.buf, start, end);
+};
+
+/**
  * Reads a varint as an unsigned 32 bit value.
  * @function
  * @returns {number} Value read
  */
-Reader.prototype.uint32 = (function read_uint32_setup() {
-    var value = 4294967295; // optimizer type-hint, tends to deopt otherwise (?!)
-    return function read_uint32() {
-        value = (         this.buf[this.pos] & 127       ) >>> 0; if (this.buf[this.pos++] < 128) return value;
-        value = (value | (this.buf[this.pos] & 127) <<  7) >>> 0; if (this.buf[this.pos++] < 128) return value;
-        value = (value | (this.buf[this.pos] & 127) << 14) >>> 0; if (this.buf[this.pos++] < 128) return value;
-        value = (value | (this.buf[this.pos] & 127) << 21) >>> 0; if (this.buf[this.pos++] < 128) return value;
-        value = (value | (this.buf[this.pos] &  15) << 28) >>> 0; if (this.buf[this.pos++] < 128) return value;
-
-        /* istanbul ignore if */
-        if ((this.pos += 5) > this.len) {
-            this.pos = this.len;
-            throw indexOutOfRange(this, 10);
-        }
+Reader.prototype.uint32 = function read_uint32() {
+    var buf = this.buf,
+        pos = this.pos,
+        value = (buf[pos] & 127) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
         return value;
-    };
-})();
+    }
+    value = (value | (buf[pos] & 127) << 7) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 127) << 14) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 127) << 21) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 15) << 28) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+
+    for (var i = 0; i < 5; ++i) {
+        /* istanbul ignore if */
+        if (pos >= this.len) {
+            this.pos = pos;
+            throw indexOutOfRange(this);
+        }
+        if (buf[pos++] < 128) {
+            this.pos = pos;
+            return value;
+        }
+    }
+    /* istanbul ignore next */
+    this.pos = pos;
+    throw Error("invalid varint encoding");
+};
+
+/**
+ * Reads a field tag.
+ * @function
+ * @returns {number} Tag read
+ */
+Reader.prototype.tag = function read_tag() {
+    var buf = this.buf,
+        pos = this.pos,
+        value = (buf[pos] & 127) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 127) << 7) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 127) << 14) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 127) << 21) >>> 0;
+    if (buf[pos++] < 128) {
+        this.pos = pos;
+        return value;
+    }
+    value = (value | (buf[pos] & 15) << 28) >>> 0;
+    if (buf[pos] < 128 && (buf[pos] & 112) === 0) {
+        this.pos = pos + 1;
+        return value;
+    }
+
+    this.pos = pos + 1;
+    throw Error("invalid tag encoding");
+};
 
 /**
  * Reads a varint as a signed 32 bit value.
@@ -5097,18 +5088,16 @@ function readLongVarint() {
             return bits;
         i = 0;
     } else {
-        for (; i < 3; ++i) {
+        for (; i < 4; ++i) {
             /* istanbul ignore if */
             if (this.pos >= this.len)
                 throw indexOutOfRange(this);
-            // 1st..3th
+            // 1st..4th
             bits.lo = (bits.lo | (this.buf[this.pos] & 127) << i * 7) >>> 0;
             if (this.buf[this.pos++] < 128)
                 return bits;
         }
-        // 4th
-        bits.lo = (bits.lo | (this.buf[this.pos++] & 127) << i * 7) >>> 0;
-        return bits;
+        throw indexOutOfRange(this);
     }
     if (this.len - this.pos > 4) { // fast route (hi)
         for (; i < 5; ++i) {
@@ -5160,7 +5149,20 @@ function readLongVarint() {
  * @returns {boolean} Value read
  */
 Reader.prototype.bool = function read_bool() {
-    return this.uint32() !== 0;
+    var value = false,
+        b;
+    for (var i = 0; i < 10; ++i) {
+        /* istanbul ignore if */
+        if (this.pos >= this.len)
+            throw indexOutOfRange(this);
+        b = this.buf[this.pos++];
+        if (b & 127)
+            value = true;
+        if (b < 128)
+            return value;
+    }
+    /* istanbul ignore next */
+    throw Error("invalid varint encoding");
 };
 
 function readFixed32_end(buf, end) { // note that this uses `end`, not `pos`
@@ -5268,12 +5270,8 @@ Reader.prototype.bytes = function read_bytes() {
     if (end > this.len)
         throw indexOutOfRange(this, length);
 
-    this.pos += length;
-    if (Array.isArray(this.buf)) // plain array
-        return this.buf.slice(start, end);
-    return start === end // fix for IE 10/Win8 and others' subarray returning array of size 1
-        ? new this.buf.constructor(0)
-        : this._slice.call(this.buf, start, end);
+    this.pos = end;
+    return this.raw(start, end);
 };
 
 /**
@@ -5281,8 +5279,33 @@ Reader.prototype.bytes = function read_bytes() {
  * @returns {string} Value read
  */
 Reader.prototype.string = function read_string() {
-    var bytes = this.bytes();
-    return utf8.read(bytes, 0, bytes.length);
+    var length = this.uint32(),
+        start  = this.pos,
+        end    = this.pos + length;
+
+    /* istanbul ignore if */
+    if (end > this.len)
+        throw indexOutOfRange(this, length);
+
+    this.pos = end;
+    return utf8.read(this.buf, start, end);
+};
+
+/**
+ * Reads a string preceeded by its byte length as a varint, rejecting invalid UTF8.
+ * @returns {string} Value read
+ */
+Reader.prototype.stringVerify = function read_string_verify() {
+    var length = this.uint32(),
+        start  = this.pos,
+        end    = this.pos + length;
+
+    /* istanbul ignore if */
+    if (end > this.len)
+        throw indexOutOfRange(this, length);
+
+    this.pos = end;
+    return utf8.readStrict(this.buf, start, end);
 };
 
 /**
@@ -5307,11 +5330,30 @@ Reader.prototype.skip = function skip(length) {
 };
 
 /**
+ * Recursion limit.
+ * @type {number}
+ */
+Reader.recursionLimit = util.recursionLimit;
+
+/**
+ * Whether readers discard unknown fields while decoding.
+ * @type {boolean}
+ */
+Reader.discardUnknown = true;
+
+/**
  * Skips the next element of the specified wire type.
  * @param {number} wireType Wire type received
+ * @param {number} [depth] Depth of recursion to control nested calls; 0 if omitted
+ * @param {number} [fieldNumber] Field number for validating group end tags
  * @returns {Reader} `this`
  */
-Reader.prototype.skipType = function(wireType) {
+Reader.prototype.skipType = function(wireType, depth, fieldNumber) {
+    if (depth === undefined) depth = 0;
+    if (depth > Reader.recursionLimit)
+        throw Error("max depth exceeded");
+    if (fieldNumber === 0)
+        throw Error("illegal tag: field number 0");
     switch (wireType) {
         case 0:
             this.skip();
@@ -5323,8 +5365,18 @@ Reader.prototype.skipType = function(wireType) {
             this.skip(this.uint32());
             break;
         case 3:
-            while ((wireType = this.uint32() & 7) !== 4) {
-                this.skipType(wireType);
+            while (true) {
+                var tag = this.tag();
+                var nestedField = tag >>> 3;
+                wireType = tag & 7;
+                if (!nestedField)
+                    throw Error("illegal tag: field number 0");
+                if (wireType === 4) {
+                    if (fieldNumber !== undefined && nestedField !== fieldNumber)
+                        throw Error("invalid end group tag");
+                    break;
+                }
+                this.skipType(wireType, depth + 1, nestedField);
             }
             break;
         case 5:
@@ -5369,15 +5421,22 @@ Reader._configure = function(BufferReader_) {
     });
 };
 
-},{"39":39}],28:[function(require,module,exports){
+},{"37":37}],19:[function(require,module,exports){
 "use strict";
 module.exports = BufferReader;
 
 // extends Reader
-var Reader = require(27);
-(BufferReader.prototype = Object.create(Reader.prototype)).constructor = BufferReader;
+var Reader = require(18);
+BufferReader.prototype = Object.create(Reader.prototype, {
+    constructor: {
+        value: BufferReader,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
 
-var util = require(39);
+var util = require(37);
 
 /**
  * Constructs a new buffer reader instance.
@@ -5402,15 +5461,36 @@ BufferReader._configure = function () {
         BufferReader.prototype._slice = util.Buffer.prototype.slice;
 };
 
+/**
+ * Returns raw bytes from the backing buffer without advancing the reader.
+ * @name BufferReader#raw
+ * @function
+ * @param {number} start Start offset
+ * @param {number} end End offset
+ * @returns {Buffer} Raw bytes
+ */
+BufferReader.prototype.raw = function read_raw_buffer(start, end) {
+    if (start === end)
+        return util.Buffer.alloc(0);
+    return this._slice.call(this.buf, start, end);
+};
 
 /**
  * @override
  */
 BufferReader.prototype.string = function read_string_buffer() {
-    var len = this.uint32(); // modifies pos
+    var len = this.uint32(), // modifies pos
+        start = this.pos,
+        end = this.pos + len;
+
+    /* istanbul ignore if */
+    if (end > this.len)
+        throw RangeError("index out of range: " + this.pos + " + " + len + " > " + this.len);
+
+    this.pos = end;
     return this.buf.utf8Slice
-        ? this.buf.utf8Slice(this.pos, this.pos = Math.min(this.pos + len, this.len))
-        : this.buf.toString("utf-8", this.pos, this.pos = Math.min(this.pos + len, this.len));
+        ? this.buf.utf8Slice(start, end)
+        : this.buf.toString("utf-8", start, end);
 };
 
 /**
@@ -5422,18 +5502,26 @@ BufferReader.prototype.string = function read_string_buffer() {
 
 BufferReader._configure();
 
-},{"27":27,"39":39}],29:[function(require,module,exports){
+},{"18":18,"37":37}],20:[function(require,module,exports){
 "use strict";
 module.exports = Root;
 
 // extends Namespace
-var Namespace = require(23);
-((Root.prototype = Object.create(Namespace.prototype)).constructor = Root).className = "Root";
+var Namespace = require(14);
+Root.prototype = Object.create(Namespace.prototype, {
+    constructor: {
+        value: Root,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Root.className = "Root";
 
-var Field   = require(16),
-    Enum    = require(15),
-    OneOf   = require(25),
-    util    = require(37);
+var Field   = require(7),
+    Enum    = require(6),
+    OneOf   = require(16),
+    util    = require(28);
 
 var Type,   // cyclic
     parse,  // might be excluded
@@ -5460,20 +5548,39 @@ function Root(options) {
      * @type {string[]}
      */
     this.files = [];
+
+    /**
+     * Edition, defaults to proto2 if unspecified.
+     * @type {string}
+     * @private
+     */
+    this._edition = "proto2";
+
+    /**
+     * Global lookup cache of fully qualified names.
+     * @type {Object.<string,ReflectionObject>}
+     * @private
+     */
+    this._fullyQualifiedObjects = {};
 }
 
 /**
  * Loads a namespace descriptor into a root namespace.
- * @param {INamespace} json Nameespace descriptor
+ * @param {INamespace} json Namespace descriptor
  * @param {Root} [root] Root namespace, defaults to create a new one if omitted
+ * @param {number} [depth] Current nesting depth, defaults to `0`
  * @returns {Root} Root namespace
  */
-Root.fromJSON = function fromJSON(json, root) {
+Root.fromJSON = function fromJSON(json, root, depth) {
+    if (depth === undefined)
+        depth = 0;
+    if (depth > util.recursionLimit)
+        throw Error("max depth exceeded");
     if (!root)
         root = new Root();
     if (json.options)
         root.setOptions(json.options);
-    return root.addJSON(json.nested);
+    return root.addJSON(json.nested, depth).resolveAll();
 };
 
 /**
@@ -5513,20 +5620,26 @@ Root.prototype.load = function load(filename, options, callback) {
         options = undefined;
     }
     var self = this;
-    if (!callback)
+    if (!callback) {
         return util.asPromise(load, self, filename, options);
+    }
 
     var sync = callback === SYNC; // undocumented
 
     // Finishes loading by calling the callback (exactly once)
     function finish(err, root) {
         /* istanbul ignore if */
-        if (!callback)
+        if (!callback) {
             return;
+        }
+        if (sync) {
+            throw err;
+        }
+        if (root) {
+            root.resolveAll();
+        }
         var cb = callback;
         callback = null;
-        if (sync)
-            throw err;
         cb(err, root);
     }
 
@@ -5535,14 +5648,19 @@ Root.prototype.load = function load(filename, options, callback) {
         var idx = filename.lastIndexOf("google/protobuf/");
         if (idx > -1) {
             var altname = filename.substring(idx);
-            if (altname in common) return altname;
+            if (Object.prototype.hasOwnProperty.call(common, altname)) return altname;
         }
+        if (Object.prototype.hasOwnProperty.call(common, filename)) return filename;
         return null;
     }
 
     // Processes a single file
-    function process(filename, source) {
+    function process(filename, source, depth) {
+        if (depth === undefined)
+            depth = 0;
         try {
+            if (depth > util.recursionLimit)
+                throw Error("max depth exceeded");
             if (util.isString(source) && source.charAt(0) === "{")
                 source = JSON.parse(source);
             if (!util.isString(source))
@@ -5555,36 +5673,41 @@ Root.prototype.load = function load(filename, options, callback) {
                 if (parsed.imports)
                     for (; i < parsed.imports.length; ++i)
                         if (resolved = getBundledFileName(parsed.imports[i]) || self.resolvePath(filename, parsed.imports[i]))
-                            fetch(resolved);
+                            fetch(resolved, false, depth + 1);
                 if (parsed.weakImports)
                     for (i = 0; i < parsed.weakImports.length; ++i)
                         if (resolved = getBundledFileName(parsed.weakImports[i]) || self.resolvePath(filename, parsed.weakImports[i]))
-                            fetch(resolved, true);
+                            fetch(resolved, true, depth + 1);
             }
         } catch (err) {
             finish(err);
         }
-        if (!sync && !queued)
+        if (!sync && !queued) {
             finish(null, self); // only once anyway
+        }
     }
 
     // Fetches a single file
-    function fetch(filename, weak) {
+    function fetch(filename, weak, depth) {
+        if (depth === undefined)
+            depth = 0;
+        filename = getBundledFileName(filename) || filename;
 
         // Skip if already loaded / attempted
-        if (self.files.indexOf(filename) > -1)
+        if (self.files.indexOf(filename) > -1) {
             return;
+        }
         self.files.push(filename);
 
         // Shortcut bundled definitions
-        if (filename in common) {
-            if (sync)
-                process(filename, common[filename]);
-            else {
+        if (Object.prototype.hasOwnProperty.call(common, filename)) {
+            if (sync) {
+                process(filename, common[filename], depth);
+            } else {
                 ++queued;
                 setTimeout(function() {
                     --queued;
-                    process(filename, common[filename]);
+                    process(filename, common[filename], depth);
                 });
             }
             return;
@@ -5600,14 +5723,15 @@ Root.prototype.load = function load(filename, options, callback) {
                     finish(err);
                 return;
             }
-            process(filename, source);
+            process(filename, source, depth);
         } else {
             ++queued;
             self.fetch(filename, function(err, source) {
                 --queued;
                 /* istanbul ignore if */
-                if (!callback)
+                if (!callback) {
                     return; // terminated meanwhile
+                }
                 if (err) {
                     /* istanbul ignore else */
                     if (!weak)
@@ -5616,7 +5740,7 @@ Root.prototype.load = function load(filename, options, callback) {
                         finish(null, self);
                     return;
                 }
-                process(filename, source);
+                process(filename, source, depth);
             });
         }
     }
@@ -5624,17 +5748,21 @@ Root.prototype.load = function load(filename, options, callback) {
 
     // Assembling the root namespace doesn't require working type
     // references anymore, so we can load everything in parallel
-    if (util.isString(filename))
+    if (util.isString(filename)) {
         filename = [ filename ];
+    }
     for (var i = 0, resolved; i < filename.length; ++i)
         if (resolved = self.resolvePath("", filename[i]))
             fetch(resolved);
-
-    if (sync)
+    if (sync) {
+        self.resolveAll();
         return self;
-    if (!queued)
+    }
+    if (!queued) {
         finish(null, self);
-    return undefined;
+    }
+
+    return self;
 };
 // function load(filename:string, options:IParseOptions, callback:LoadCallback):undefined
 
@@ -5676,6 +5804,8 @@ Root.prototype.loadSync = function loadSync(filename, options) {
  * @override
  */
 Root.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
     if (this.deferred.length)
         throw Error("unresolvable extensions: " + this.deferred.map(function(field) {
             return "'extend " + field.extend + "' in " + field.parent.fullName;
@@ -5698,6 +5828,10 @@ function tryHandleExtension(root, field) {
     var extendedType = field.parent.lookup(field.extend);
     if (extendedType) {
         var sisterField = new Field(field.fullName, field.id, field.type, field.rule, undefined, field.options);
+        //do not allow to extend same field twice to prevent the error
+        if (extendedType.get(sisterField.name)) {
+            return true;
+        }
         sisterField.declaringField = field;
         field.extensionField = sisterField;
         extendedType.add(sisterField);
@@ -5736,6 +5870,11 @@ Root.prototype._handleAdd = function _handleAdd(object) {
             this._handleAdd(object._nestedArray[j]);
         if (exposeRe.test(object.name))
             object.parent[object.name] = object; // expose namespace as property of its parent
+    }
+
+    if (object instanceof Type || object instanceof Enum || object instanceof Field) {
+        // Only store types and enums for quick lookup during resolve.
+        this._fullyQualifiedObjects[object.fullName] = object;
     }
 
     // The above also adds uppercased (and thus conflict-free) nested types, services and enums as
@@ -5778,6 +5917,8 @@ Root.prototype._handleRemove = function _handleRemove(object) {
             delete object.parent[object.name]; // unexpose namespaces
 
     }
+
+    delete this._fullyQualifiedObjects[object.fullName];
 };
 
 // Sets up cyclic dependencies (called in index-light)
@@ -5787,9 +5928,9 @@ Root._configure = function(Type_, parse_, common_) {
     common = common_;
 };
 
-},{"15":15,"16":16,"23":23,"25":25,"37":37}],30:[function(require,module,exports){
+},{"14":14,"16":16,"28":28,"6":6,"7":7}],21:[function(require,module,exports){
 "use strict";
-module.exports = {};
+module.exports = Object.create(null);
 
 /**
  * Named roots.
@@ -5807,7 +5948,7 @@ module.exports = {};
  * var root = protobuf.roots["myroot"];
  */
 
-},{}],31:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 "use strict";
 
 /**
@@ -5843,16 +5984,23 @@ var rpc = exports;
  * @returns {undefined}
  */
 
-rpc.Service = require(32);
+rpc.Service = require(23);
 
-},{"32":32}],32:[function(require,module,exports){
+},{"23":23}],23:[function(require,module,exports){
 "use strict";
 module.exports = Service;
 
-var util = require(39);
+var util = require(37);
 
 // Extends EventEmitter
-(Service.prototype = Object.create(util.EventEmitter.prototype)).constructor = Service;
+Service.prototype = Object.create(util.EventEmitter.prototype, {
+    constructor: {
+        value: Service,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
 
 /**
  * A service method callback as used by {@link rpc.ServiceMethod|ServiceMethod}.
@@ -5871,10 +6019,16 @@ var util = require(39);
  * @typedef rpc.ServiceMethod
  * @template TReq extends Message<TReq>
  * @template TRes extends Message<TRes>
- * @type {function}
- * @param {TReq|Properties<TReq>} request Request message or plain object
- * @param {rpc.ServiceMethodCallback<TRes>} [callback] Node-style callback called with the error, if any, and the response message
- * @returns {Promise<Message<TRes>>} Promise if `callback` has been omitted, otherwise `undefined`
+ * @type {{
+ *   (request: TReq|Properties<TReq>, callback: rpc.ServiceMethodCallback<TRes>): void;
+ *   (request: TReq|Properties<TReq>): Promise<TRes>;
+ *   readonly name: string;
+ *   readonly path: string;
+ *   readonly requestType: string;
+ *   readonly responseType: string;
+ *   readonly requestStream: true|undefined;
+ *   readonly responseStream: true|undefined;
+ * }}
  */
 
 /**
@@ -5989,17 +6143,25 @@ Service.prototype.end = function end(endedByRPC) {
     return this;
 };
 
-},{"39":39}],33:[function(require,module,exports){
+},{"37":37}],24:[function(require,module,exports){
 "use strict";
 module.exports = Service;
 
 // extends Namespace
-var Namespace = require(23);
-((Service.prototype = Object.create(Namespace.prototype)).constructor = Service).className = "Service";
+var Namespace = require(14);
+Service.prototype = Object.create(Namespace.prototype, {
+    constructor: {
+        value: Service,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Service.className = "Service";
 
-var Method = require(22),
-    util   = require(37),
-    rpc    = require(31);
+var Method = require(13),
+    util   = require(28),
+    rpc    = require(22);
 
 /**
  * Constructs a new service instance.
@@ -6031,25 +6193,35 @@ function Service(name, options) {
  * Service descriptor.
  * @interface IService
  * @extends INamespace
+ * @property {string} [edition] Edition
  * @property {Object.<string,IMethod>} methods Method descriptors
+ * @property {string|null} [comment] Service comment
  */
 
 /**
  * Constructs a service from a service descriptor.
  * @param {string} name Service name
  * @param {IService} json Service descriptor
+ * @param {number} [depth] Current nesting depth, defaults to `0`
  * @returns {Service} Created service
  * @throws {TypeError} If arguments are invalid
  */
-Service.fromJSON = function fromJSON(name, json) {
+Service.fromJSON = function fromJSON(name, json, depth) {
+    if (depth === undefined)
+        depth = 0;
+    if (depth > util.recursionLimit)
+        throw Error("max depth exceeded");
     var service = new Service(name, json.options);
     /* istanbul ignore else */
     if (json.methods)
         for (var names = Object.keys(json.methods), i = 0; i < names.length; ++i)
             service.add(Method.fromJSON(names[i], json.methods[names[i]]));
     if (json.nested)
-        service.addJSON(json.nested);
+        service.addJSON(json.nested, depth);
+    if (json.edition)
+        service._edition = json.edition;
     service.comment = json.comment;
+    service._defaultEdition = "proto3";  // For backwards-compatibility.
     return service;
 };
 
@@ -6062,6 +6234,7 @@ Service.prototype.toJSON = function toJSON(toJSONOptions) {
     var inherited = Namespace.prototype.toJSON.call(this, toJSONOptions);
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition" , this._editionToJSON(),
         "options" , inherited && inherited.options || undefined,
         "methods" , Namespace.arrayToJSON(this.methodsArray, toJSONOptions) || /* istanbul ignore next */ {},
         "nested"  , inherited && inherited.nested || undefined,
@@ -6090,30 +6263,50 @@ function clearCache(service) {
  * @override
  */
 Service.prototype.get = function get(name) {
-    return this.methods[name]
-        || Namespace.prototype.get.call(this, name);
+    return Object.prototype.hasOwnProperty.call(this.methods, name)
+        ? this.methods[name]
+        : Namespace.prototype.get.call(this, name);
 };
 
 /**
  * @override
  */
 Service.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
+    Namespace.prototype.resolve.call(this);
     var methods = this.methodsArray;
     for (var i = 0; i < methods.length; ++i)
         methods[i].resolve();
-    return Namespace.prototype.resolve.call(this);
+    return this;
+};
+
+/**
+ * @override
+ */
+Service.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+
+    edition = this._edition || edition;
+
+    Namespace.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.methodsArray.forEach(method => {
+        method._resolveFeaturesRecursive(edition);
+    });
+    return this;
 };
 
 /**
  * @override
  */
 Service.prototype.add = function add(object) {
-
     /* istanbul ignore if */
     if (this.get(object.name))
         throw Error("duplicate name '" + object.name + "' in " + this);
 
     if (object instanceof Method) {
+        if (object.name === "__proto__")
+            return this;
         this.methods[object.name] = object;
         object.parent = this;
         return clearCache(this);
@@ -6149,16 +6342,16 @@ Service.prototype.create = function create(rpcImpl, requestDelimited, responseDe
     var rpcService = new rpc.Service(rpcImpl, requestDelimited, responseDelimited);
     for (var i = 0, method; i < /* initializes */ this.methodsArray.length; ++i) {
         var methodName = util.lcFirst((method = this._methodsArray[i]).resolve().name).replace(/[^$\w_]/g, "");
-        rpcService[methodName] = util.codegen(["r","c"], util.isReserved(methodName) ? methodName + "_" : methodName)("return this.rpcCall(m,q,s,r,c)")({
-            m: method,
-            q: method.resolvedRequestType.ctor,
-            s: method.resolvedResponseType.ctor
-        });
+        rpcService[methodName] = (function(method, requestType, responseType) {
+            return function rpcMethod(request, callback) {
+                return rpc.Service.prototype.rpcCall.call(this, method, requestType, responseType, request, callback);
+            };
+        })(method, method.resolvedRequestType.ctor, method.resolvedResponseType.ctor);
     }
     return rpcService;
 };
 
-},{"22":22,"23":23,"31":31,"37":37}],34:[function(require,module,exports){
+},{"13":13,"14":14,"22":22,"28":28}],25:[function(require,module,exports){
 "use strict";
 module.exports = tokenize;
 
@@ -6358,9 +6551,7 @@ function tokenize(source, alternateCommentMode) {
 
         // see if remaining line matches comment pattern
         var lineText = source.substring(startOffset, endOffset);
-        // look for 1 or 2 slashes since startOffset would already point past
-        // the first slash that started the comment.
-        var isComment = /^\s*\/{1,2}/.test(lineText);
+        var isComment = /^\s*\/\//.test(lineText);
         return isComment;
     }
 
@@ -6388,6 +6579,7 @@ function tokenize(source, alternateCommentMode) {
             curr,
             start,
             isDoc,
+            nextLineIsComment,
             isLeadingComment = offset === 0;
         do {
             if (offset === length)
@@ -6429,7 +6621,7 @@ function tokenize(source, alternateCommentMode) {
                         // check for double-slash comments, consolidating consecutive lines
                         start = offset;
                         isDoc = false;
-                        if (isDoubleSlashCommentLine(offset)) {
+                        if (isDoubleSlashCommentLine(offset - 1)) {
                             isDoc = true;
                             do {
                                 offset = findEndOfLine(offset);
@@ -6441,7 +6633,11 @@ function tokenize(source, alternateCommentMode) {
                                     // Trailing comment cannot not be multi-line
                                     break;
                                 }
-                            } while (isDoubleSlashCommentLine(offset));
+                                nextLineIsComment = isDoubleSlashCommentLine(offset);
+                                if (nextLineIsComment) {
+                                    line++;
+                                }
+                            } while (nextLineIsComment);
                         } else {
                             offset = Math.min(length, findEndOfLine(offset) + 1);
                         }
@@ -6578,28 +6774,36 @@ function tokenize(source, alternateCommentMode) {
     /* eslint-enable callback-return */
 }
 
-},{}],35:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 "use strict";
 module.exports = Type;
 
 // extends Namespace
-var Namespace = require(23);
-((Type.prototype = Object.create(Namespace.prototype)).constructor = Type).className = "Type";
+var Namespace = require(14);
+Type.prototype = Object.create(Namespace.prototype, {
+    constructor: {
+        value: Type,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
+Type.className = "Type";
 
-var Enum      = require(15),
-    OneOf     = require(25),
-    Field     = require(16),
-    MapField  = require(20),
-    Service   = require(33),
-    Message   = require(21),
-    Reader    = require(27),
-    Writer    = require(42),
-    util      = require(37),
-    encoder   = require(14),
-    decoder   = require(13),
-    verifier  = require(40),
-    converter = require(12),
-    wrappers  = require(41);
+var Enum      = require(6),
+    OneOf     = require(16),
+    Field     = require(7),
+    MapField  = require(11),
+    Service   = require(24),
+    Message   = require(12),
+    Reader    = require(18),
+    Writer    = require(44),
+    util      = require(28),
+    encoder   = require(5),
+    decoder   = require(4),
+    verifier  = require(42),
+    converter = require(3),
+    wrappers  = require(43);
 
 /**
  * Constructs a new reflected message type instance.
@@ -6610,6 +6814,7 @@ var Enum      = require(15),
  * @param {Object.<string,*>} [options] Declared options
  */
 function Type(name, options) {
+    name = name.replace(/\W/g, "");
     Namespace.call(this, name, options);
 
     /**
@@ -6669,6 +6874,13 @@ function Type(name, options) {
      * @private
      */
     this._ctor = null;
+
+    /**
+     * Cached fields by JSON name.
+     * @type {Object.<string,Field>|null}
+     * @private
+     */
+    this._fieldsByJsonName = null; // used by ext/protojson
 }
 
 Object.defineProperties(Type.prototype, {
@@ -6728,6 +6940,7 @@ Object.defineProperties(Type.prototype, {
     /**
      * The registered constructor, if any registered, otherwise a generic constructor.
      * Assigning a function replaces the internal constructor. If the function does not extend {@link Message} yet, its prototype will be setup accordingly and static methods will be populated. If it already extends {@link Message}, it will just replace the internal constructor.
+     * When assigning manually, add the type to its parent namespace/root first if fields reference other reflected types, because constructor setup resolves field defaults.
      * @name Type#ctor
      * @type {Constructor<{}>}
      */
@@ -6740,7 +6953,13 @@ Object.defineProperties(Type.prototype, {
             // Ensure proper prototype
             var prototype = ctor.prototype;
             if (!(prototype instanceof Message)) {
-                (ctor.prototype = new Message()).constructor = ctor;
+                ctor.prototype = new Message();
+                Object.defineProperty(ctor.prototype, "constructor", {
+                    value: ctor,
+                    writable: true,
+                    enumerable: false,
+                    configurable: true
+                });
                 util.merge(ctor.prototype, prototype);
             }
 
@@ -6751,11 +6970,15 @@ Object.defineProperties(Type.prototype, {
             util.merge(ctor, Message, true);
 
             this._ctor = ctor;
+            delete this.decode;
+            delete this.fromObject;
 
             // Messages have non-enumerable default values on their prototype
             var i = 0;
-            for (; i < /* initializes */ this.fieldsArray.length; ++i)
-                this._fieldsArray[i].resolve(); // ensures a proper value
+            for (var field; i < /* initializes */ this.fieldsArray.length; ++i) {
+                field = this._fieldsArray[i].resolve(); // ensures a proper value
+                ctor.prototype[field.name] = field.defaultValue;
+            }
 
             // Messages have non-enumerable getters and setters for each virtual oneof field
             var ctorProperties = {};
@@ -6777,7 +7000,7 @@ Object.defineProperties(Type.prototype, {
  */
 Type.generateConstructor = function generateConstructor(mtype) {
     /* eslint-disable no-unexpected-multiline */
-    var gen = util.codegen(["p"], mtype.name);
+    var gen = util.codegen(["p"]);
     // explicitly initialize mutable object/array fields so that these aren't just inherited from the prototype
     for (var i = 0, field; i < mtype.fieldsArray.length; ++i)
         if ((field = mtype._fieldsArray[i]).map) gen
@@ -6785,13 +7008,13 @@ Type.generateConstructor = function generateConstructor(mtype) {
         else if (field.repeated) gen
             ("this%s=[]", util.safeProp(field.name));
     return gen
-    ("if(p)for(var ks=Object.keys(p),i=0;i<ks.length;++i)if(p[ks[i]]!=null)") // omit undefined or null
+    ("if(p)for(var ks=Object.keys(p),i=0;i<ks.length;++i)if(p[ks[i]]!=null&&ks[i]!==\"__proto__\")") // omit undefined or null
         ("this[ks[i]]=p[ks[i]]");
     /* eslint-enable no-unexpected-multiline */
 };
 
 function clearCache(type) {
-    type._fieldsById = type._fieldsArray = type._oneofsArray = null;
+    type._fieldsById = type._fieldsArray = type._oneofsArray = type._fieldsByJsonName = null;
     delete type.encode;
     delete type.decode;
     delete type.verify;
@@ -6802,20 +7025,27 @@ function clearCache(type) {
  * Message type descriptor.
  * @interface IType
  * @extends INamespace
+ * @property {string} [edition] Edition
  * @property {Object.<string,IOneOf>} [oneofs] Oneof descriptors
  * @property {Object.<string,IField>} fields Field descriptors
  * @property {number[][]} [extensions] Extension ranges
- * @property {number[][]} [reserved] Reserved ranges
+ * @property {Array.<number[]|string>} [reserved] Reserved ranges
  * @property {boolean} [group=false] Whether a legacy group or not
+ * @property {string|null} [comment] Message type comment
  */
 
 /**
  * Creates a message type from a message type descriptor.
  * @param {string} name Message name
  * @param {IType} json Message type descriptor
+ * @param {number} [depth] Current nesting depth, defaults to `0`
  * @returns {Type} Created message type
  */
-Type.fromJSON = function fromJSON(name, json) {
+Type.fromJSON = function fromJSON(name, json, depth) {
+    if (depth === undefined)
+        depth = 0;
+    if (depth > util.nestingLimit)
+        throw Error("max depth exceeded");
     var type = new Type(name, json.options);
     type.extensions = json.extensions;
     type.reserved = json.reserved;
@@ -6842,7 +7072,7 @@ Type.fromJSON = function fromJSON(name, json) {
                 ? Enum.fromJSON
                 : nested.methods !== undefined
                 ? Service.fromJSON
-                : Namespace.fromJSON )(names[i], nested)
+                : Namespace.fromJSON )(names[i], nested, depth + 1)
             );
         }
     if (json.extensions && json.extensions.length)
@@ -6853,6 +7083,9 @@ Type.fromJSON = function fromJSON(name, json) {
         type.group = true;
     if (json.comment)
         type.comment = json.comment;
+    if (json.edition)
+        type._edition = json.edition;
+    type._defaultEdition = "proto3";  // For backwards-compatibility.
     return type;
 };
 
@@ -6865,6 +7098,7 @@ Type.prototype.toJSON = function toJSON(toJSONOptions) {
     var inherited = Namespace.prototype.toJSON.call(this, toJSONOptions);
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition"    , this._editionToJSON(),
         "options"    , inherited && inherited.options || undefined,
         "oneofs"     , Namespace.arrayToJSON(this.oneofsArray, toJSONOptions),
         "fields"     , Namespace.arrayToJSON(this.fieldsArray.filter(function(obj) { return !obj.declaringField; }), toJSONOptions) || {},
@@ -6880,23 +7114,47 @@ Type.prototype.toJSON = function toJSON(toJSONOptions) {
  * @override
  */
 Type.prototype.resolveAll = function resolveAll() {
-    var fields = this.fieldsArray, i = 0;
-    while (i < fields.length)
-        fields[i++].resolve();
+    if (!this._needsRecursiveResolve) return this;
+
+    Namespace.prototype.resolveAll.call(this);
     var oneofs = this.oneofsArray; i = 0;
     while (i < oneofs.length)
         oneofs[i++].resolve();
-    return Namespace.prototype.resolveAll.call(this);
+    var fields = this.fieldsArray, i = 0;
+    while (i < fields.length)
+        fields[i++].resolve();
+    return this;
+};
+
+/**
+ * @override
+ */
+Type.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+
+    edition = this._edition || edition;
+
+    Namespace.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.oneofsArray.forEach(oneof => {
+        oneof._resolveFeatures(edition);
+    });
+    this.fieldsArray.forEach(field => {
+        field._resolveFeatures(edition);
+    });
+    return this;
 };
 
 /**
  * @override
  */
 Type.prototype.get = function get(name) {
-    return this.fields[name]
-        || this.oneofs && this.oneofs[name]
-        || this.nested && this.nested[name]
-        || null;
+    if (Object.prototype.hasOwnProperty.call(this.fields, name))
+        return this.fields[name];
+    if (this.oneofs && Object.prototype.hasOwnProperty.call(this.oneofs, name))
+        return this.oneofs[name];
+    if (this.nested && Object.prototype.hasOwnProperty.call(this.nested, name))
+        return this.nested[name];
+    return null;
 };
 
 /**
@@ -6907,7 +7165,6 @@ Type.prototype.get = function get(name) {
  * @throws {Error} If there is already a nested object with this name or, if a field, when there is already a field with this id
  */
 Type.prototype.add = function add(object) {
-
     if (this.get(object.name))
         throw Error("duplicate name '" + object.name + "' in " + this);
 
@@ -6921,8 +7178,10 @@ Type.prototype.add = function add(object) {
             throw Error("duplicate id " + object.id + " in " + this);
         if (this.isReservedId(object.id))
             throw Error("id " + object.id + " is reserved in " + this);
-        if (this.isReservedName(object.name))
+        if (this.isReservedName(object.name) || object.name.charAt(0) === "$")
             throw Error("name '" + object.name + "' is reserved in " + this);
+        if (object.name === "__proto__")
+            return this;
 
         if (object.parent)
             object.parent.remove(object);
@@ -6932,6 +7191,10 @@ Type.prototype.add = function add(object) {
         return clearCache(this);
     }
     if (object instanceof OneOf) {
+        if (object.name.charAt(0) === "$")
+            throw Error("name '" + object.name + "' is reserved in " + this);
+        if (object.name === "__proto__")
+            return this;
         if (!this.oneofs)
             this.oneofs = {};
         this.oneofs[object.name] = object;
@@ -6953,10 +7216,9 @@ Type.prototype.remove = function remove(object) {
         // See Type#add for the reason why extension fields are excluded here.
 
         /* istanbul ignore if */
-        if (!this.fields || this.fields[object.name] !== object)
+        if (!util.remove(this.fields, object, object.name))
             throw Error(object + " is not a member of " + this);
 
-        delete this.fields[object.name];
         object.parent = null;
         object.onRemove(this);
         return clearCache(this);
@@ -6964,10 +7226,9 @@ Type.prototype.remove = function remove(object) {
     if (object instanceof OneOf) {
 
         /* istanbul ignore if */
-        if (!this.oneofs || this.oneofs[object.name] !== object)
+        if (!util.remove(this.oneofs, object, object.name))
             throw Error(object + " is not a member of " + this);
 
-        delete this.oneofs[object.name];
         object.parent = null;
         object.onRemove(this);
         return clearCache(this);
@@ -6996,7 +7257,7 @@ Type.prototype.isReservedName = function isReservedName(name) {
 /**
  * Creates a new message of this type using the specified properties.
  * @param {Object.<string,*>} [properties] Properties to set
- * @returns {Message<{}>} Message instance
+ * @returns {ReflectedMessage} Message instance
  */
 Type.prototype.create = function create(properties) {
     return new this.ctor(properties);
@@ -7024,7 +7285,8 @@ Type.prototype.setup = function setup() {
     this.decode = decoder(this)({
         Reader : Reader,
         types  : types,
-        util   : util
+        util   : util,
+        C      : this.ctor
     });
     this.verify = verifier(this)({
         types : types,
@@ -7032,7 +7294,8 @@ Type.prototype.setup = function setup() {
     });
     this.fromObject = converter.fromObject(this)({
         types : types,
-        util  : util
+        util  : util,
+        C     : this.ctor
     });
     this.toObject = converter.toObject(this)({
         types : types,
@@ -7042,15 +7305,13 @@ Type.prototype.setup = function setup() {
     // Inject custom wrappers for common types
     var wrapper = wrappers[fullName];
     if (wrapper) {
-        var originalThis = Object.create(this);
-        // if (wrapper.fromObject) {
-            originalThis.fromObject = this.fromObject;
-            this.fromObject = wrapper.fromObject.bind(originalThis);
-        // }
-        // if (wrapper.toObject) {
-            originalThis.toObject = this.toObject;
-            this.toObject = wrapper.toObject.bind(originalThis);
-        // }
+        var wrapperThis = Object.create(this);
+        // Reuse this type's runtime constructor in wrapper fromObject/toObject
+        wrapperThis._ctor = this.ctor;
+        wrapperThis.fromObject = this.fromObject;
+        this.fromObject = wrapper.fromObject.bind(wrapperThis);
+        wrapperThis.toObject = this.toObject;
+        this.toObject = wrapper.toObject.bind(wrapperThis);
     }
 
     return this;
@@ -7062,8 +7323,8 @@ Type.prototype.setup = function setup() {
  * @param {Writer} [writer] Writer to encode to
  * @returns {Writer} writer
  */
-Type.prototype.encode = function encode_setup(message, writer) {
-    return this.setup().encode(message, writer); // overrides this method
+Type.prototype.encode = function encode_setup(message, writer) { // eslint-disable-line no-unused-vars
+    return this.setup().encode.apply(this, arguments); // overrides this method
 };
 
 /**
@@ -7080,18 +7341,18 @@ Type.prototype.encodeDelimited = function encodeDelimited(message, writer) {
  * Decodes a message of this type.
  * @param {Reader|Uint8Array} reader Reader or buffer to decode from
  * @param {number} [length] Length of the message, if known beforehand
- * @returns {Message<{}>} Decoded message
+ * @returns {ReflectedMessage} Decoded message
  * @throws {Error} If the payload is not a reader or valid buffer
  * @throws {util.ProtocolError<{}>} If required fields are missing
  */
-Type.prototype.decode = function decode_setup(reader, length) {
-    return this.setup().decode(reader, length); // overrides this method
+Type.prototype.decode = function decode_setup(reader, length) { // eslint-disable-line no-unused-vars
+    return this.setup().decode.apply(this, arguments); // overrides this method
 };
 
 /**
  * Decodes a message of this type preceeded by its byte length as a varint.
  * @param {Reader|Uint8Array} reader Reader or buffer to decode from
- * @returns {Message<{}>} Decoded message
+ * @returns {ReflectedMessage} Decoded message
  * @throws {Error} If the payload is not a reader or valid buffer
  * @throws {util.ProtocolError} If required fields are missing
  */
@@ -7106,24 +7367,24 @@ Type.prototype.decodeDelimited = function decodeDelimited(reader) {
  * @param {Object.<string,*>} message Plain object to verify
  * @returns {null|string} `null` if valid, otherwise the reason why it is not
  */
-Type.prototype.verify = function verify_setup(message) {
-    return this.setup().verify(message); // overrides this method
+Type.prototype.verify = function verify_setup(message) { // eslint-disable-line no-unused-vars
+    return this.setup().verify.apply(this, arguments); // overrides this method
 };
 
 /**
  * Creates a new message of this type from a plain object. Also converts values to their respective internal types.
  * @param {Object.<string,*>} object Plain object to convert
- * @returns {Message<{}>} Message instance
+ * @returns {ReflectedMessage} Message instance
  */
-Type.prototype.fromObject = function fromObject(object) {
-    return this.setup().fromObject(object);
+Type.prototype.fromObject = function fromObject(object) { // eslint-disable-line no-unused-vars
+    return this.setup().fromObject.apply(this, arguments);
 };
 
 /**
  * Conversion options as used by {@link Type#toObject} and {@link Message.toObject}.
  * @interface IConversionOptions
  * @property {Function} [longs] Long conversion type.
- * Valid values are `String` and `Number` (the global types).
+ * Valid values are `BigInt`, `String` and `Number` (the global types).
  * Defaults to copy the present value, which is a possibly unsafe number without and a {@link Long} with a long library.
  * @property {Function} [enums] Enum value conversion type.
  * Only valid value is `String` (the global type).
@@ -7144,8 +7405,20 @@ Type.prototype.fromObject = function fromObject(object) {
  * @param {IConversionOptions} [options] Conversion options
  * @returns {Object.<string,*>} Plain object
  */
-Type.prototype.toObject = function toObject(message, options) {
-    return this.setup().toObject(message, options);
+Type.prototype.toObject = function toObject(message, options) { // eslint-disable-line no-unused-vars
+    return this.setup().toObject.apply(this, arguments);
+};
+
+/**
+ * Gets the type url for this type.
+ * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+ * @returns {string} The type url
+ */
+Type.prototype.getTypeUrl = function getTypeUrl(prefix) {
+    if (prefix === undefined)
+        prefix = "type.googleapis.com";
+    var fullName = this.fullName;
+    return prefix + "/" + (fullName.charAt(0) === "." ? fullName.substring(1) : fullName);
 };
 
 /**
@@ -7155,6 +7428,7 @@ Type.prototype.toObject = function toObject(message, options) {
  * @param {Constructor<T>} target Target constructor
  * @returns {undefined}
  * @template T extends Message<T>
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 
 /**
@@ -7162,6 +7436,7 @@ Type.prototype.toObject = function toObject(message, options) {
  * @param {string} [typeName] Type name, defaults to the constructor's name
  * @returns {TypeDecorator<T>} Decorator function
  * @template T extends Message<T>
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 Type.d = function decorateType(typeName) {
     return function typeDecorator(target) {
@@ -7169,7 +7444,7 @@ Type.d = function decorateType(typeName) {
     };
 };
 
-},{"12":12,"13":13,"14":14,"15":15,"16":16,"20":20,"21":21,"23":23,"25":25,"27":27,"33":33,"37":37,"40":40,"41":41,"42":42}],36:[function(require,module,exports){
+},{"11":11,"12":12,"14":14,"16":16,"18":18,"24":24,"28":28,"3":3,"4":4,"42":42,"43":43,"44":44,"5":5,"6":6,"7":7}],27:[function(require,module,exports){
 "use strict";
 
 /**
@@ -7178,7 +7453,7 @@ Type.d = function decorateType(typeName) {
  */
 var types = exports;
 
-var util = require(37);
+var util = require(28);
 
 var s = [
     "double",   // 0
@@ -7199,7 +7474,7 @@ var s = [
 ];
 
 function bake(values, offset) {
-    var i = 0, o = {};
+    var i = 0, o = Object.create(null);
     offset |= 0;
     while (i < values.length) o[s[i + offset]] = values[i++];
     return o;
@@ -7367,29 +7642,32 @@ types.packed = bake([
     /* bool     */ 0
 ]);
 
-},{"37":37}],37:[function(require,module,exports){
+},{"28":28}],28:[function(require,module,exports){
 "use strict";
 
 /**
  * Various utility functions.
  * @namespace
  */
-var util = module.exports = require(39);
+var util = module.exports = require(37);
 
-var roots = require(30);
+var roots = require(21);
 
 var Type, // cyclic
     Enum;
 
-util.codegen = require(3);
-util.fetch   = require(5);
-util.path    = require(8);
+util.codegen  = require(31);
+util.fetch    = require(33);
+util.path     = require(38);
+util.patterns = require(39);
+
+var reservedRe = util.patterns.reservedRe;
 
 /**
  * Node's fs module if available.
  * @type {Object.<string,*>}
  */
-util.fs = util.inquire("fs");
+util.fs = require(35);
 
 /**
  * Converts an object's values to an array.
@@ -7425,8 +7703,27 @@ util.toObject = function toObject(array) {
     return object;
 };
 
-var safePropBackslashRe = /\\/g,
-    safePropQuoteRe     = /"/g;
+/**
+ * Removes the first matching value from an object.
+ * @param {Object.<string,*>|undefined} object Object to remove from
+ * @param {*} value Value to remove
+ * @param {string} [key] Optional key for fast path removal
+ * @returns {boolean} `true` if removed, otherwise `false`
+ */
+util.remove = function remove(object, value, key) {
+    if (!object)
+        return false;
+    if (key !== undefined && Object.prototype.hasOwnProperty.call(object, key) && object[key] === value) {
+        delete object[key];
+        return true;
+    }
+    for (var names = Object.keys(object), i = 0; i < names.length; ++i)
+        if (object[names[i]] === value) {
+            delete object[names[i]];
+            return true;
+        }
+    return false;
+};
 
 /**
  * Tests whether the specified name is a reserved word in JS.
@@ -7434,7 +7731,7 @@ var safePropBackslashRe = /\\/g,
  * @returns {boolean} `true` if reserved, otherwise `false`
  */
 util.isReserved = function isReserved(name) {
-    return /^(?:do|if|in|for|let|new|try|var|case|else|enum|eval|false|null|this|true|void|with|break|catch|class|const|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/.test(name);
+    return reservedRe.test(name);
 };
 
 /**
@@ -7443,8 +7740,8 @@ util.isReserved = function isReserved(name) {
  * @returns {string} Safe accessor
  */
 util.safeProp = function safeProp(prop) {
-    if (!/^[$\w_]+$/.test(prop) || util.isReserved(prop))
-        return "[\"" + prop.replace(safePropBackslashRe, "\\\\").replace(safePropQuoteRe, "\\\"") + "\"]";
+    if (!/^[$\w_]+$/.test(prop) || reservedRe.test(prop))
+        return "[" + JSON.stringify(prop) + "]";
     return "." + prop;
 };
 
@@ -7463,11 +7760,34 @@ var camelCaseRe = /_([a-z])/g;
  * Converts a string to camel case.
  * @param {string} str String to convert
  * @returns {string} Converted string
+ * @deprecated Use {@link util.jsonName} for protobuf field JSON names.
  */
 util.camelCase = function camelCase(str) {
     return str.substring(0, 1)
          + str.substring(1)
                .replace(camelCaseRe, function($0, $1) { return $1.toUpperCase(); });
+};
+
+/**
+ * Converts a proto field name to its protoc-compatible JSON name.
+ * @param {string} str Proto field name
+ * @returns {string} JSON name
+ */
+util.jsonName = function jsonName(str) {
+    var result = "",
+        upperNext = false,
+        i = 0;
+    for (; i < str.length; ++i) {
+        var ch = str.charAt(i);
+        if (ch === "_")
+            upperNext = true;
+        else if (upperNext) {
+            result += ch.toUpperCase();
+            upperNext = false;
+        } else
+            result += ch;
+    }
+    return result;
 };
 
 /**
@@ -7487,6 +7807,7 @@ util.compareFieldsById = function compareFieldsById(a, b) {
  * @returns {Type} Reflected type
  * @template T extends Message<T>
  * @property {Root} root Decorators root
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 util.decorateType = function decorateType(ctor, typeName) {
 
@@ -7502,7 +7823,7 @@ util.decorateType = function decorateType(ctor, typeName) {
 
     /* istanbul ignore next */
     if (!Type)
-        Type = require(35);
+        Type = require(26);
 
     var type = new Type(typeName || ctor.name);
     util.decorateRoot.add(type);
@@ -7518,6 +7839,7 @@ var decorateEnumIndex = 0;
  * Decorator helper for enums (TypeScript).
  * @param {Object} object Enum object
  * @returns {Enum} Reflected enum
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 util.decorateEnum = function decorateEnum(object) {
 
@@ -7527,7 +7849,7 @@ util.decorateEnum = function decorateEnum(object) {
 
     /* istanbul ignore next */
     if (!Enum)
-        Enum = require(15);
+        Enum = require(6);
 
     var enm = new Enum("Enum" + decorateEnumIndex++, object);
     util.decorateRoot.add(enm);
@@ -7541,18 +7863,20 @@ util.decorateEnum = function decorateEnum(object) {
  * @param {Object.<string,*>} dst Destination object
  * @param {string} path dot '.' delimited path of the property to set
  * @param {Object} value the value to set
+ * @param {boolean|undefined} [ifNotSet] Sets the option only if it isn't currently set
  * @returns {Object.<string,*>} Destination object
  */
-util.setProperty = function setProperty(dst, path, value) {
+util.setProperty = function setProperty(dst, path, value, ifNotSet) {
     function setProp(dst, path, value) {
         var part = path.shift();
-        if (part === "__proto__") {
-          return dst;
-        }
+        if (util.isUnsafeProperty(part))
+            return dst;
         if (path.length > 0) {
             dst[part] = setProp(dst[part] || {}, path, value);
         } else {
             var prevValue = dst[part];
+            if (prevValue && ifNotSet)
+                return dst;
             if (prevValue)
                 value = [].concat(prevValue).concat(value);
             dst[part] = value;
@@ -7566,6 +7890,8 @@ util.setProperty = function setProperty(dst, path, value) {
         throw TypeError("path must be specified");
 
     path = path.split(".");
+    if (path.length > util.recursionLimit)
+        throw Error("max depth exceeded");
     return setProp(dst, path, value);
 };
 
@@ -7574,18 +7900,893 @@ util.setProperty = function setProperty(dst, path, value) {
  * @name util.decorateRoot
  * @type {Root}
  * @readonly
+ * @deprecated Legacy TypeScript decorator support. Will be removed in a future release.
  */
 Object.defineProperty(util, "decorateRoot", {
     get: function() {
-        return roots["decorated"] || (roots["decorated"] = new (require(29))());
+        return roots["decorated"] || (roots["decorated"] = new (require(20))());
     }
 });
 
-},{"15":15,"29":29,"3":3,"30":30,"35":35,"39":39,"5":5,"8":8}],38:[function(require,module,exports){
+},{"20":20,"21":21,"26":26,"31":31,"33":33,"35":35,"37":37,"38":38,"39":39,"6":6}],29:[function(require,module,exports){
+"use strict";
+module.exports = asPromise;
+
+/**
+ * Callback as used by {@link util.asPromise}.
+ * @typedef asPromiseCallback
+ * @type {function}
+ * @param {Error|null} error Error, if any
+ * @param {...*} params Additional arguments
+ * @returns {undefined}
+ */
+
+/**
+ * Returns a promise from a node-style callback function.
+ * @memberof util
+ * @param {asPromiseCallback} fn Function to call
+ * @param {*} ctx Function context
+ * @param {...*} params Function arguments
+ * @returns {Promise<*>} Promisified function
+ */
+function asPromise(fn, ctx/*, varargs */) {
+    var params  = new Array(arguments.length - 1),
+        offset  = 0,
+        index   = 2,
+        pending = true;
+    while (index < arguments.length)
+        params[offset++] = arguments[index++];
+    return new Promise(function executor(resolve, reject) {
+        params[offset] = function callback(err/*, varargs */) {
+            if (pending) {
+                pending = false;
+                if (err)
+                    reject(err);
+                else {
+                    var params = new Array(arguments.length - 1),
+                        offset = 0;
+                    while (offset < params.length)
+                        params[offset++] = arguments[offset];
+                    resolve.apply(null, params);
+                }
+            }
+        };
+        try {
+            fn.apply(ctx || null, params);
+        } catch (err) {
+            if (pending) {
+                pending = false;
+                reject(err);
+            }
+        }
+    });
+}
+
+},{}],30:[function(require,module,exports){
+"use strict";
+
+/**
+ * A minimal base64 implementation for number arrays.
+ * @memberof util
+ * @namespace
+ */
+var base64 = exports;
+
+/**
+ * Calculates the byte length of a base64 encoded string.
+ * @param {string} string Base64 encoded string
+ * @returns {number} Byte length
+ */
+base64.length = function length(string) {
+    var p = string.length;
+    if (!p)
+        return 0;
+    while (p > 0 && string.charAt(p - 1) === "=")
+        --p;
+    return Math.floor(p * 3 / 4);
+};
+
+// Base64 encoding table
+var b64 = new Array(64);
+
+// Base64 decoding table
+var s64 = new Array(123);
+
+// 65..90, 97..122, 48..57, 43, 47
+for (var i = 0; i < 64;)
+    s64[b64[i] = i < 26 ? i + 65 : i < 52 ? i + 71 : i < 62 ? i - 4 : i - 59 | 43] = i++;
+
+s64[45] = 62; // - -> +
+s64[95] = 63; // _ -> /
+
+/**
+ * Encodes a buffer to a base64 encoded string.
+ * @param {Uint8Array} buffer Source buffer
+ * @param {number} start Source start
+ * @param {number} end Source end
+ * @returns {string} Base64 encoded string
+ */
+base64.encode = function encode(buffer, start, end) {
+    var parts = null,
+        chunk = [];
+    var i = 0, // output index
+        j = 0, // goto index
+        t;     // temporary
+    while (start < end) {
+        var b = buffer[start++];
+        switch (j) {
+            case 0:
+                chunk[i++] = b64[b >> 2];
+                t = (b & 3) << 4;
+                j = 1;
+                break;
+            case 1:
+                chunk[i++] = b64[t | b >> 4];
+                t = (b & 15) << 2;
+                j = 2;
+                break;
+            case 2:
+                chunk[i++] = b64[t | b >> 6];
+                chunk[i++] = b64[b & 63];
+                j = 0;
+                break;
+        }
+        if (i > 8191) {
+            (parts || (parts = [])).push(String.fromCharCode.apply(String, chunk));
+            i = 0;
+        }
+    }
+    if (j) {
+        chunk[i++] = b64[t];
+        chunk[i++] = 61;
+        if (j === 1)
+            chunk[i++] = 61;
+    }
+    if (parts) {
+        if (i)
+            parts.push(String.fromCharCode.apply(String, chunk.slice(0, i)));
+        return parts.join("");
+    }
+    return String.fromCharCode.apply(String, chunk.slice(0, i));
+};
+
+var invalidEncoding = "invalid encoding";
+
+/**
+ * Decodes a base64 encoded string to a buffer.
+ * @param {string} string Source string
+ * @param {Uint8Array} buffer Destination buffer
+ * @param {number} offset Destination offset
+ * @returns {number} Number of bytes written
+ * @throws {Error} If encoding is invalid
+ */
+base64.decode = function decode(string, buffer, offset) {
+    var start = offset;
+    var j = 0, // goto index
+        t;     // temporary
+    for (var i = 0; i < string.length;) {
+        var c = string.charCodeAt(i++);
+        if (c === 61 && j > 1)
+            break;
+        if ((c = s64[c]) === undefined)
+            throw Error(invalidEncoding);
+        switch (j) {
+            case 0:
+                t = c;
+                j = 1;
+                break;
+            case 1:
+                buffer[offset++] = t << 2 | (c & 48) >> 4;
+                t = c;
+                j = 2;
+                break;
+            case 2:
+                buffer[offset++] = (t & 15) << 4 | (c & 60) >> 2;
+                t = c;
+                j = 3;
+                break;
+            case 3:
+                buffer[offset++] = (t & 3) << 6 | c;
+                j = 0;
+                break;
+        }
+    }
+    if (j === 1)
+        throw Error(invalidEncoding);
+    return offset - start;
+};
+
+var base64Re = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+    base64UrlRe = /[-_]/,
+    base64UrlNoPaddingRe = /^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}(?:==)?|[A-Za-z0-9_-]{3}=?)?$/;
+
+/**
+ * Tests if the specified string appears to be base64 encoded.
+ * @param {string} string String to test
+ * @returns {boolean} `true` if probably base64 encoded, otherwise false
+ */
+base64.test = function test(string) {
+    return base64Re.test(string)
+        || base64UrlRe.test(string) && base64UrlNoPaddingRe.test(string);
+};
+
+},{}],31:[function(require,module,exports){
+"use strict";
+module.exports = codegen;
+
+var patterns = require(39);
+var reservedRe = patterns.reservedRe;
+
+/**
+ * Begins generating a function.
+ * @memberof util
+ * @param {string[]} functionParams Function parameter names
+ * @param {string} [functionName] Function name if not anonymous
+ * @returns {Codegen} Appender that appends code to the function's body
+ */
+function codegen(functionParams, functionName) {
+
+    /* istanbul ignore if */
+    if (typeof functionParams === "string") {
+        functionName = functionParams;
+        functionParams = undefined;
+    }
+
+    var body = [];
+
+    /**
+     * Appends code to the function's body or finishes generation.
+     * @typedef Codegen
+     * @type {function}
+     * @param {string|Object.<string,*>} [formatStringOrScope] Format string or, to finish the function, an object of additional scope variables, if any
+     * @param {...*} [formatParams] Format parameters
+     * @returns {Codegen|Function} Itself or the generated function if finished
+     * @throws {Error} If format parameter counts do not match
+     */
+
+    function Codegen(formatStringOrScope) {
+        // note that explicit array handling below makes this ~50% faster
+
+        // finish the function
+        if (typeof formatStringOrScope !== "string") {
+            var source = toString();
+            if (codegen.verbose)
+                console.log("codegen: " + source); // eslint-disable-line no-console
+            source = "return " + source;
+            if (formatStringOrScope) {
+                var scopeKeys   = Object.keys(formatStringOrScope),
+                    scopeParams = new Array(scopeKeys.length + 1),
+                    scopeValues = new Array(scopeKeys.length),
+                    scopeOffset = 0;
+                while (scopeOffset < scopeKeys.length) {
+                    scopeParams[scopeOffset] = scopeKeys[scopeOffset];
+                    scopeValues[scopeOffset] = formatStringOrScope[scopeKeys[scopeOffset++]];
+                }
+                scopeParams[scopeOffset] = source;
+                return Function.apply(null, scopeParams).apply(null, scopeValues); // eslint-disable-line no-new-func
+            }
+            return Function(source)(); // eslint-disable-line no-new-func
+        }
+
+        // otherwise append to body
+        var formatParams = new Array(arguments.length - 1),
+            formatOffset = 0;
+        while (formatOffset < formatParams.length)
+            formatParams[formatOffset] = arguments[++formatOffset];
+        formatOffset = 0;
+        formatStringOrScope = formatStringOrScope.replace(/%([%dfijs])/g, function replace($0, $1) {
+            var value = formatParams[formatOffset++];
+            switch ($1) {
+                case "d": case "f": return String(Number(value));
+                case "i": return String(Math.floor(value));
+                case "j": return JSON.stringify(value);
+                case "s": return String(value);
+            }
+            return "%";
+        });
+        if (formatOffset !== formatParams.length)
+            throw Error("parameter count mismatch");
+        body.push(formatStringOrScope);
+        return Codegen;
+    }
+
+    function toString(functionNameOverride) {
+        return "function " + safeFunctionName(functionNameOverride || functionName) + "(" + (functionParams && functionParams.join(",") || "") + "){\n  " + body.join("\n  ") + "\n}";
+    }
+
+    Object.defineProperty(Codegen, "toString", {
+        value: toString,
+        writable: true,
+        enumerable: true,
+        configurable: true
+    });
+    return Codegen;
+}
+
+/**
+ * Begins generating a function.
+ * @memberof util
+ * @function codegen
+ * @param {string} [functionName] Function name if not anonymous
+ * @returns {Codegen} Appender that appends code to the function's body
+ * @variation 2
+ */
+
+/**
+ * When set to `true`, codegen will log generated code to console. Useful for debugging.
+ * @name util.codegen.verbose
+ * @type {boolean}
+ */
+codegen.verbose = false;
+
+function safeFunctionName(name) {
+    if (!name)
+        return "";
+    name = String(name).replace(/[^\w$]/g, "");
+    if (!name)
+        return "";
+    if (/^\d/.test(name))
+        name = "_" + name;
+    return reservedRe.test(name) ? name + "_" : name;
+}
+
+},{"39":39}],32:[function(require,module,exports){
+"use strict";
+module.exports = EventEmitter;
+
+/**
+ * Constructs a new event emitter instance.
+ * @classdesc A minimal event emitter.
+ * @memberof util
+ * @constructor
+ */
+function EventEmitter() {
+
+    /**
+     * Registered listeners.
+     * @type {Object.<string,*>}
+     * @private
+     */
+    this._listeners = Object.create(null);
+}
+
+/**
+ * Event listener as used by {@link util.EventEmitter}.
+ * @typedef EventEmitterListener
+ * @type {function}
+ * @param {...*} args Arguments
+ * @returns {undefined}
+ */
+
+/**
+ * Registers an event listener.
+ * @param {string} evt Event name
+ * @param {EventEmitterListener} fn Listener
+ * @param {*} [ctx] Listener context
+ * @returns {this} `this`
+ */
+EventEmitter.prototype.on = function on(evt, fn, ctx) {
+    (this._listeners[evt] || (this._listeners[evt] = [])).push({
+        fn  : fn,
+        ctx : ctx || this
+    });
+    return this;
+};
+
+/**
+ * Removes an event listener or any matching listeners if arguments are omitted.
+ * @param {string} [evt] Event name. Removes all listeners if omitted.
+ * @param {EventEmitterListener} [fn] Listener to remove. Removes all listeners of `evt` if omitted.
+ * @returns {this} `this`
+ */
+EventEmitter.prototype.off = function off(evt, fn) {
+    if (evt === undefined)
+        this._listeners = Object.create(null);
+    else {
+        if (fn === undefined)
+            this._listeners[evt] = [];
+        else {
+            var listeners = this._listeners[evt];
+            if (!listeners)
+                return this;
+            for (var i = 0; i < listeners.length;)
+                if (listeners[i].fn === fn)
+                    listeners.splice(i, 1);
+                else
+                    ++i;
+        }
+    }
+    return this;
+};
+
+/**
+ * Emits an event by calling its listeners with the specified arguments.
+ * @param {string} evt Event name
+ * @param {...*} args Arguments
+ * @returns {this} `this`
+ */
+EventEmitter.prototype.emit = function emit(evt) {
+    var listeners = this._listeners[evt];
+    if (listeners) {
+        var args = [],
+            i = 1;
+        for (; i < arguments.length;)
+            args.push(arguments[i++]);
+        for (i = 0; i < listeners.length;)
+            listeners[i].fn.apply(listeners[i++].ctx, args);
+    }
+    return this;
+};
+
+},{}],33:[function(require,module,exports){
+"use strict";
+module.exports = fetch;
+
+var asPromise = require(29),
+    fs        = require(35);
+
+/**
+ * Node-style callback as used by {@link util.fetch}.
+ * @typedef FetchCallback
+ * @type {function}
+ * @param {?Error} error Error, if any, otherwise `null`
+ * @param {string} [contents] File contents, if there hasn't been an error
+ * @returns {undefined}
+ */
+
+/**
+ * Options as used by {@link util.fetch}.
+ * @interface IFetchOptions
+ * @property {boolean} [binary=false] Whether expecting a binary response
+ * @property {boolean} [xhr=false] If `true`, forces the use of XMLHttpRequest
+ */
+
+/**
+ * Fetches the contents of a file.
+ * @memberof util
+ * @param {string} filename File path or url
+ * @param {IFetchOptions} options Fetch options
+ * @param {FetchCallback} callback Callback function
+ * @returns {undefined}
+ */
+function fetch(filename, options, callback) {
+    if (typeof options === "function") {
+        callback = options;
+        options = {};
+    } else if (!options)
+        options = {};
+
+    if (!callback)
+        return asPromise(fetch, this, filename, options); // eslint-disable-line no-invalid-this
+
+    // if a node-like filesystem is present, try it first but fall back to XHR if nothing is found.
+    if (!options.xhr && fs && fs.readFile)
+        return fs.readFile(filename, function fetchReadFileCallback(err, contents) {
+            return err && typeof XMLHttpRequest !== "undefined"
+                ? fetch.xhr(filename, options, callback)
+                : err
+                ? callback(err)
+                : callback(null, options.binary ? contents : contents.toString("utf8"));
+        });
+
+    // use the XHR version otherwise.
+    return fetch.xhr(filename, options, callback);
+}
+
+/**
+ * Fetches the contents of a file.
+ * @name util.fetch
+ * @function
+ * @param {string} path File path or url
+ * @param {FetchCallback} callback Callback function
+ * @returns {undefined}
+ * @variation 2
+ */
+
+/**
+ * Fetches the contents of a file.
+ * @name util.fetch
+ * @function
+ * @param {string} path File path or url
+ * @param {IFetchOptions} [options] Fetch options
+ * @returns {Promise<string|Uint8Array>} Promise
+ * @variation 3
+ */
+
+/**/
+fetch.xhr = function fetch_xhr(filename, options, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange /* works everywhere */ = function fetchOnReadyStateChange() {
+
+        if (xhr.readyState !== 4)
+            return undefined;
+
+        // local cors security errors return status 0 / empty string, too. afaik this cannot be
+        // reliably distinguished from an actually empty file for security reasons. feel free
+        // to send a pull request if you are aware of a solution.
+        if (xhr.status !== 0 && xhr.status !== 200)
+            return callback(Error("status " + xhr.status));
+
+        // if binary data is expected, make sure that some sort of array is returned, even if
+        // ArrayBuffers are not supported. the binary string fallback, however, is unsafe.
+        if (options.binary) {
+            var buffer = xhr.response;
+            if (!buffer) {
+                buffer = [];
+                for (var i = 0; i < xhr.responseText.length; ++i)
+                    buffer.push(xhr.responseText.charCodeAt(i) & 255);
+            }
+            return callback(null, typeof Uint8Array !== "undefined" ? new Uint8Array(buffer) : buffer);
+        }
+        return callback(null, xhr.responseText);
+    };
+
+    if (options.binary) {
+        // ref: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Sending_and_Receiving_Binary_Data#Receiving_binary_data_in_older_browsers
+        if ("overrideMimeType" in xhr)
+            xhr.overrideMimeType("text/plain; charset=x-user-defined");
+        xhr.responseType = "arraybuffer";
+    }
+
+    xhr.open("GET", filename);
+    xhr.send();
+};
+
+},{"29":29,"35":35}],34:[function(require,module,exports){
+"use strict";
+
+module.exports = factory(factory);
+
+/**
+ * Reads / writes floats / doubles from / to buffers.
+ * @name util.float
+ * @namespace
+ */
+
+/**
+ * Writes a 32 bit float to a buffer using little endian byte order.
+ * @name util.float.writeFloatLE
+ * @function
+ * @param {number} val Value to write
+ * @param {Uint8Array} buf Target buffer
+ * @param {number} pos Target buffer offset
+ * @returns {undefined}
+ */
+
+/**
+ * Writes a 32 bit float to a buffer using big endian byte order.
+ * @name util.float.writeFloatBE
+ * @function
+ * @param {number} val Value to write
+ * @param {Uint8Array} buf Target buffer
+ * @param {number} pos Target buffer offset
+ * @returns {undefined}
+ */
+
+/**
+ * Reads a 32 bit float from a buffer using little endian byte order.
+ * @name util.float.readFloatLE
+ * @function
+ * @param {Uint8Array} buf Source buffer
+ * @param {number} pos Source buffer offset
+ * @returns {number} Value read
+ */
+
+/**
+ * Reads a 32 bit float from a buffer using big endian byte order.
+ * @name util.float.readFloatBE
+ * @function
+ * @param {Uint8Array} buf Source buffer
+ * @param {number} pos Source buffer offset
+ * @returns {number} Value read
+ */
+
+/**
+ * Writes a 64 bit double to a buffer using little endian byte order.
+ * @name util.float.writeDoubleLE
+ * @function
+ * @param {number} val Value to write
+ * @param {Uint8Array} buf Target buffer
+ * @param {number} pos Target buffer offset
+ * @returns {undefined}
+ */
+
+/**
+ * Writes a 64 bit double to a buffer using big endian byte order.
+ * @name util.float.writeDoubleBE
+ * @function
+ * @param {number} val Value to write
+ * @param {Uint8Array} buf Target buffer
+ * @param {number} pos Target buffer offset
+ * @returns {undefined}
+ */
+
+/**
+ * Reads a 64 bit double from a buffer using little endian byte order.
+ * @name util.float.readDoubleLE
+ * @function
+ * @param {Uint8Array} buf Source buffer
+ * @param {number} pos Source buffer offset
+ * @returns {number} Value read
+ */
+
+/**
+ * Reads a 64 bit double from a buffer using big endian byte order.
+ * @name util.float.readDoubleBE
+ * @function
+ * @param {Uint8Array} buf Source buffer
+ * @param {number} pos Source buffer offset
+ * @returns {number} Value read
+ */
+
+// Factory function for the purpose of node-based testing in modified global environments
+function factory(exports) {
+
+    // float: typed array
+    if (typeof Float32Array !== "undefined") (function() {
+
+        var f32 = new Float32Array([ -0 ]),
+            f8b = new Uint8Array(f32.buffer),
+            le  = f8b[3] === 128;
+
+        function writeFloat_f32_cpy(val, buf, pos) {
+            f32[0] = val;
+            buf[pos    ] = f8b[0];
+            buf[pos + 1] = f8b[1];
+            buf[pos + 2] = f8b[2];
+            buf[pos + 3] = f8b[3];
+        }
+
+        function writeFloat_f32_rev(val, buf, pos) {
+            f32[0] = val;
+            buf[pos    ] = f8b[3];
+            buf[pos + 1] = f8b[2];
+            buf[pos + 2] = f8b[1];
+            buf[pos + 3] = f8b[0];
+        }
+
+        /* istanbul ignore next */
+        exports.writeFloatLE = le ? writeFloat_f32_cpy : writeFloat_f32_rev;
+        /* istanbul ignore next */
+        exports.writeFloatBE = le ? writeFloat_f32_rev : writeFloat_f32_cpy;
+
+        function readFloat_f32_cpy(buf, pos) {
+            f8b[0] = buf[pos    ];
+            f8b[1] = buf[pos + 1];
+            f8b[2] = buf[pos + 2];
+            f8b[3] = buf[pos + 3];
+            return f32[0];
+        }
+
+        function readFloat_f32_rev(buf, pos) {
+            f8b[3] = buf[pos    ];
+            f8b[2] = buf[pos + 1];
+            f8b[1] = buf[pos + 2];
+            f8b[0] = buf[pos + 3];
+            return f32[0];
+        }
+
+        /* istanbul ignore next */
+        exports.readFloatLE = le ? readFloat_f32_cpy : readFloat_f32_rev;
+        /* istanbul ignore next */
+        exports.readFloatBE = le ? readFloat_f32_rev : readFloat_f32_cpy;
+
+    // float: ieee754
+    })(); else (function() {
+
+        function writeFloat_ieee754(writeUint, val, buf, pos) {
+            var sign = val < 0 ? 1 : 0;
+            if (sign)
+                val = -val;
+            if (val === 0)
+                writeUint(1 / val > 0 ? /* positive */ 0 : /* negative 0 */ 2147483648, buf, pos);
+            else if (isNaN(val))
+                writeUint(2143289344, buf, pos);
+            else if (val > 3.4028234663852886e+38) // +-Infinity
+                writeUint((sign << 31 | 2139095040) >>> 0, buf, pos);
+            else if (val < 1.1754943508222875e-38) // denormal
+                writeUint((sign << 31 | Math.round(val / 1.401298464324817e-45)) >>> 0, buf, pos);
+            else {
+                var exponent = Math.floor(Math.log(val) / Math.LN2),
+                    mantissa = Math.round(val * Math.pow(2, -exponent) * 8388608) & 8388607;
+                writeUint((sign << 31 | exponent + 127 << 23 | mantissa) >>> 0, buf, pos);
+            }
+        }
+
+        exports.writeFloatLE = writeFloat_ieee754.bind(null, writeUintLE);
+        exports.writeFloatBE = writeFloat_ieee754.bind(null, writeUintBE);
+
+        function readFloat_ieee754(readUint, buf, pos) {
+            var uint = readUint(buf, pos),
+                sign = (uint >> 31) * 2 + 1,
+                exponent = uint >>> 23 & 255,
+                mantissa = uint & 8388607;
+            return exponent === 255
+                ? mantissa
+                ? NaN
+                : sign * Infinity
+                : exponent === 0 // denormal
+                ? sign * 1.401298464324817e-45 * mantissa
+                : sign * Math.pow(2, exponent - 150) * (mantissa + 8388608);
+        }
+
+        exports.readFloatLE = readFloat_ieee754.bind(null, readUintLE);
+        exports.readFloatBE = readFloat_ieee754.bind(null, readUintBE);
+
+    })();
+
+    // double: typed array
+    if (typeof Float64Array !== "undefined") (function() {
+
+        var f64 = new Float64Array([-0]),
+            f8b = new Uint8Array(f64.buffer),
+            le  = f8b[7] === 128;
+
+        function writeDouble_f64_cpy(val, buf, pos) {
+            f64[0] = val;
+            buf[pos    ] = f8b[0];
+            buf[pos + 1] = f8b[1];
+            buf[pos + 2] = f8b[2];
+            buf[pos + 3] = f8b[3];
+            buf[pos + 4] = f8b[4];
+            buf[pos + 5] = f8b[5];
+            buf[pos + 6] = f8b[6];
+            buf[pos + 7] = f8b[7];
+        }
+
+        function writeDouble_f64_rev(val, buf, pos) {
+            f64[0] = val;
+            buf[pos    ] = f8b[7];
+            buf[pos + 1] = f8b[6];
+            buf[pos + 2] = f8b[5];
+            buf[pos + 3] = f8b[4];
+            buf[pos + 4] = f8b[3];
+            buf[pos + 5] = f8b[2];
+            buf[pos + 6] = f8b[1];
+            buf[pos + 7] = f8b[0];
+        }
+
+        /* istanbul ignore next */
+        exports.writeDoubleLE = le ? writeDouble_f64_cpy : writeDouble_f64_rev;
+        /* istanbul ignore next */
+        exports.writeDoubleBE = le ? writeDouble_f64_rev : writeDouble_f64_cpy;
+
+        function readDouble_f64_cpy(buf, pos) {
+            f8b[0] = buf[pos    ];
+            f8b[1] = buf[pos + 1];
+            f8b[2] = buf[pos + 2];
+            f8b[3] = buf[pos + 3];
+            f8b[4] = buf[pos + 4];
+            f8b[5] = buf[pos + 5];
+            f8b[6] = buf[pos + 6];
+            f8b[7] = buf[pos + 7];
+            return f64[0];
+        }
+
+        function readDouble_f64_rev(buf, pos) {
+            f8b[7] = buf[pos    ];
+            f8b[6] = buf[pos + 1];
+            f8b[5] = buf[pos + 2];
+            f8b[4] = buf[pos + 3];
+            f8b[3] = buf[pos + 4];
+            f8b[2] = buf[pos + 5];
+            f8b[1] = buf[pos + 6];
+            f8b[0] = buf[pos + 7];
+            return f64[0];
+        }
+
+        /* istanbul ignore next */
+        exports.readDoubleLE = le ? readDouble_f64_cpy : readDouble_f64_rev;
+        /* istanbul ignore next */
+        exports.readDoubleBE = le ? readDouble_f64_rev : readDouble_f64_cpy;
+
+    // double: ieee754
+    })(); else (function() {
+
+        function writeDouble_ieee754(writeUint, off0, off1, val, buf, pos) {
+            var sign = val < 0 ? 1 : 0;
+            if (sign)
+                val = -val;
+            if (val === 0) {
+                writeUint(0, buf, pos + off0);
+                writeUint(1 / val > 0 ? /* positive */ 0 : /* negative 0 */ 2147483648, buf, pos + off1);
+            } else if (isNaN(val)) {
+                writeUint(0, buf, pos + off0);
+                writeUint(2146959360, buf, pos + off1);
+            } else if (val > 1.7976931348623157e+308) { // +-Infinity
+                writeUint(0, buf, pos + off0);
+                writeUint((sign << 31 | 2146435072) >>> 0, buf, pos + off1);
+            } else {
+                var mantissa;
+                if (val < 2.2250738585072014e-308) { // denormal
+                    mantissa = val / 5e-324;
+                    writeUint(mantissa >>> 0, buf, pos + off0);
+                    writeUint((sign << 31 | mantissa / 4294967296) >>> 0, buf, pos + off1);
+                } else {
+                    var exponent = Math.floor(Math.log(val) / Math.LN2);
+                    if (exponent === 1024)
+                        exponent = 1023;
+                    mantissa = val * Math.pow(2, -exponent);
+                    writeUint(mantissa * 4503599627370496 >>> 0, buf, pos + off0);
+                    writeUint((sign << 31 | exponent + 1023 << 20 | mantissa * 1048576 & 1048575) >>> 0, buf, pos + off1);
+                }
+            }
+        }
+
+        exports.writeDoubleLE = writeDouble_ieee754.bind(null, writeUintLE, 0, 4);
+        exports.writeDoubleBE = writeDouble_ieee754.bind(null, writeUintBE, 4, 0);
+
+        function readDouble_ieee754(readUint, off0, off1, buf, pos) {
+            var lo = readUint(buf, pos + off0),
+                hi = readUint(buf, pos + off1);
+            var sign = (hi >> 31) * 2 + 1,
+                exponent = hi >>> 20 & 2047,
+                mantissa = 4294967296 * (hi & 1048575) + lo;
+            return exponent === 2047
+                ? mantissa
+                ? NaN
+                : sign * Infinity
+                : exponent === 0 // denormal
+                ? sign * 5e-324 * mantissa
+                : sign * Math.pow(2, exponent - 1075) * (mantissa + 4503599627370496);
+        }
+
+        exports.readDoubleLE = readDouble_ieee754.bind(null, readUintLE, 0, 4);
+        exports.readDoubleBE = readDouble_ieee754.bind(null, readUintBE, 4, 0);
+
+    })();
+
+    return exports;
+}
+
+// uint helpers
+
+function writeUintLE(val, buf, pos) {
+    buf[pos    ] =  val        & 255;
+    buf[pos + 1] =  val >>> 8  & 255;
+    buf[pos + 2] =  val >>> 16 & 255;
+    buf[pos + 3] =  val >>> 24;
+}
+
+function writeUintBE(val, buf, pos) {
+    buf[pos    ] =  val >>> 24;
+    buf[pos + 1] =  val >>> 16 & 255;
+    buf[pos + 2] =  val >>> 8  & 255;
+    buf[pos + 3] =  val        & 255;
+}
+
+function readUintLE(buf, pos) {
+    return (buf[pos    ]
+          | buf[pos + 1] << 8
+          | buf[pos + 2] << 16
+          | buf[pos + 3] << 24) >>> 0;
+}
+
+function readUintBE(buf, pos) {
+    return (buf[pos    ] << 24
+          | buf[pos + 1] << 16
+          | buf[pos + 2] << 8
+          | buf[pos + 3]) >>> 0;
+}
+
+},{}],35:[function(require,module,exports){
+"use strict";
+
+var fs = null;
+try {
+    fs = require(1);
+    if (!fs || !fs.readFile || !fs.readFileSync)
+        fs = null;
+} catch (e) {
+    // `fs` is unavailable in browsers and browser-like bundles.
+}
+module.exports = fs;
+
+},{"1":1}],36:[function(require,module,exports){
 "use strict";
 module.exports = LongBits;
 
-var util = require(39);
+var util = require(37);
 
 /**
  * Constructs new long bits.
@@ -7783,33 +8984,43 @@ LongBits.prototype.length = function length() {
          : part2 < 128 ? 9 : 10;
 };
 
-},{"39":39}],39:[function(require,module,exports){
+},{"37":37}],37:[function(require,module,exports){
 "use strict";
+/* global globalThis */
 var util = exports;
 
 // used to return a Promise where callback is omitted
-util.asPromise = require(1);
+util.asPromise = require(29);
 
 // converts to / from base64 encoded strings
-util.base64 = require(2);
+util.base64 = require(30);
 
 // base class of rpc.Service
-util.EventEmitter = require(4);
+util.EventEmitter = require(32);
 
 // float handling accross browsers
-util.float = require(6);
-
-// requires modules optionally and hides the call from bundlers
-util.inquire = require(7);
+util.float = require(34);
 
 // converts to / from utf8 encoded strings
-util.utf8 = require(10);
+util.utf8 = require(41);
 
 // provides a node-like buffer pool in the browser
-util.pool = require(9);
+util.pool = require(40);
 
 // utility to work with the low and high bits of a 64 bit value
-util.LongBits = require(38);
+util.LongBits = require(36);
+
+/**
+ * Tests if the specified key can affect object prototypes.
+ * @memberof util
+ * @param {string} key Key to test
+ * @returns {boolean} `true` if the key is unsafe
+ */
+function isUnsafeProperty(key) {
+    return key === "__proto__" || key === "prototype" || key === "constructor";
+}
+
+util.isUnsafeProperty = isUnsafeProperty;
 
 /**
  * Whether running within node or not.
@@ -7830,6 +9041,7 @@ util.isNode = Boolean(typeof global !== "undefined"
 util.global = util.isNode && global
            || typeof window !== "undefined" && window
            || typeof self   !== "undefined" && self
+           || typeof globalThis !== "undefined" && globalThis
            || this; // eslint-disable-line no-invalid-this
 
 /**
@@ -7893,7 +9105,7 @@ util.isset =
  */
 util.isSet = function isSet(obj, prop) {
     var value = obj[prop];
-    if (value != null && obj.hasOwnProperty(prop)) // eslint-disable-line eqeqeq, no-prototype-builtins
+    if (value != null && Object.hasOwnProperty.call(obj, prop)) // eslint-disable-line eqeqeq
         return typeof value !== "object" || (Array.isArray(value) ? value.length : Object.keys(value).length) > 0;
     return false;
 };
@@ -7911,7 +9123,7 @@ util.isSet = function isSet(obj, prop) {
  */
 util.Buffer = (function() {
     try {
-        var Buffer = util.inquire("buffer").Buffer;
+        var Buffer = util.global.Buffer;
         // refuse to use non-node buffers if not explicitly assigned (perf reasons):
         return Buffer.prototype.utf8Write ? Buffer : /* istanbul ignore next */ null;
     } catch (e) {
@@ -7945,6 +9157,28 @@ util.newBuffer = function newBuffer(sizeOrArray) {
 };
 
 /**
+ * Prepends a raw field tag to raw field data.
+ * @param {number} id Field id
+ * @param {number} wireType Wire type
+ * @param {Uint8Array} data Raw field data
+ * @returns {Uint8Array|Buffer} Raw field bytes
+ * @ignore
+ */
+util.rawField = function rawField(id, wireType, data) {
+    var out = [],
+        tag = id << 3 | wireType;
+    tag >>>= 0;
+    while (tag > 127) {
+        out.push(tag & 127 | 128);
+        tag >>>= 7;
+    }
+    out.push(tag);
+    for (var i = 0; i < data.length; ++i)
+        out.push(data[i]);
+    return util.newBuffer(out);
+};
+
+/**
  * Array implementation used in the browser. `Uint8Array` if supported, otherwise `Array`.
  * @type {Constructor<Uint8Array>}
  */
@@ -7965,14 +9199,22 @@ util.Array = typeof Uint8Array !== "undefined" ? Uint8Array /* istanbul ignore n
  */
 util.Long = /* istanbul ignore next */ util.global.dcodeIO && /* istanbul ignore next */ util.global.dcodeIO.Long
          || /* istanbul ignore next */ util.global.Long
-         || util.inquire("long");
+         || (function() {
+                try {
+                    var Long = require("long");
+                    return Long && Long.isLong ? Long : null;
+                } catch (e) {
+                    /* istanbul ignore next */
+                    return null;
+                }
+            })();
 
 /**
  * Regular expression used to verify 2 bit (`bool`) map keys.
  * @type {RegExp}
  * @const
  */
-util.key2Re = /^true|false|0|1$/;
+util.key2Re = /^(?:true|false|0|1)$/;
 
 /**
  * Regular expression used to verify 32 bit (`int32` etc.) map keys.
@@ -7986,7 +9228,7 @@ util.key32Re = /^-?(?:0|[1-9][0-9]*)$/;
  * @type {RegExp}
  * @const
  */
-util.key64Re = /^(?:[\\x00-\\xff]{8}|-?(?:0|[1-9][0-9]*))$/;
+util.key64Re = /^(?:[\x00-\xff]{8}|-?(?:0|[1-9][0-9]*))$/; // eslint-disable-line no-control-regex
 
 /**
  * Converts a number or long to an 8 characters long hash string.
@@ -8013,21 +9255,81 @@ util.longFromHash = function longFromHash(hash, unsigned) {
 };
 
 /**
+ * Converts a 64 bit key to a long or number if it is an 8 characters long hash string.
+ * @param {string} key Map key
+ * @param {boolean} [unsigned=false] Whether unsigned or not
+ * @returns {Long|number|string} Original value
+ */
+util.longFromKey = function longFromKey(key, unsigned) {
+    return util.key64Re.test(key) && !util.key32Re.test(key)
+        ? util.longFromHash(key, unsigned)
+        : key;
+};
+
+/**
+ * Converts a boolean key to a boolean value.
+ * @param {string} key Map key
+ * @returns {boolean} Boolean value
+ */
+util.boolFromKey = function boolFromKey(key) {
+    return key === "true" || key === "1";
+};
+
+/**
  * Merges the properties of the source object into the destination object.
  * @memberof util
  * @param {Object.<string,*>} dst Destination object
- * @param {Object.<string,*>} src Source object
- * @param {boolean} [ifNotSet=false] Merges only if the key is not already set
+ * @param {...(Object.<string,*>|boolean)} src Source objects, optionally followed by an `ifNotSet` flag
  * @returns {Object.<string,*>} Destination object
  */
-function merge(dst, src, ifNotSet) { // used by converters
-    for (var keys = Object.keys(src), i = 0; i < keys.length; ++i)
-        if (dst[keys[i]] === undefined || !ifNotSet)
-            dst[keys[i]] = src[keys[i]];
+function merge(dst) { // used by converters
+    var ifNotSet = typeof arguments[arguments.length - 1] === "boolean",
+        limit = ifNotSet ? arguments.length - 1 : arguments.length;
+    ifNotSet = ifNotSet && arguments[arguments.length - 1];
+    for (var a = 1; a < limit; ++a) {
+        var src = arguments[a];
+        if (!src)
+            continue;
+        for (var keys = Object.keys(src), i = 0; i < keys.length; ++i)
+            if (!isUnsafeProperty(keys[i]) && (!ifNotSet || !Object.prototype.hasOwnProperty.call(dst, keys[i]) || dst[keys[i]] === undefined))
+                dst[keys[i]] = src[keys[i]];
+    }
     return dst;
 }
 
 util.merge = merge;
+
+/**
+ * Schema declaration nesting limit.
+ * @memberof util
+ * @type {number}
+ */
+util.nestingLimit = 32; // protoc: MaxMessageDeclarationNestingDepth
+
+/**
+ * Recursion limit.
+ * @memberof util
+ * @type {number}
+ */
+util.recursionLimit = 100; // protoc: CodedInputStream::default_recursion_limit_
+
+/**
+ * Makes a property safe for assignment as an own property.
+ * @memberof util
+ * @param {Object.<string,*>} obj Object
+ * @param {string} key Property key
+ * @param {boolean} [enumerable=true] Whether the property should be enumerable
+ * @returns {undefined}
+ */
+util.makeProp = function makeProp(obj, key, enumerable) {
+    if (Object.prototype.hasOwnProperty.call(obj, key))
+        return;
+    Object.defineProperty(obj, key, {
+        enumerable: enumerable === undefined ? true : enumerable,
+        configurable: true,
+        writable: true
+    });
+};
 
 /**
  * Converts the first character of a string to lower case.
@@ -8074,7 +9376,7 @@ function newError(name) {
             configurable: true,
         },
         name: {
-            get() { return name; },
+            get: function get() { return name; },
             set: undefined,
             enumerable: false,
             // configurable: false would accurately preserve the behavior of
@@ -8084,7 +9386,7 @@ function newError(name) {
             configurable: true,
         },
         toString: {
-            value() { return this.name + ": " + this.message; },
+            value: function value() { return this.name + ": " + this.message; },
             writable: true,
             enumerable: false,
             configurable: true,
@@ -8223,12 +9525,363 @@ util._configure = function() {
         };
 };
 
-},{"1":1,"10":10,"2":2,"38":38,"4":4,"6":6,"7":7,"9":9}],40:[function(require,module,exports){
+},{"29":29,"30":30,"32":32,"34":34,"36":36,"40":40,"41":41,"long":"long"}],38:[function(require,module,exports){
+"use strict";
+
+/**
+ * A minimal path module to resolve Unix, Windows and URL paths alike.
+ * @memberof util
+ * @namespace
+ */
+var path = exports;
+
+var urlRe = /^[a-zA-Z][a-zA-Z0-9+.-]+:\/\//;
+
+function normalizeUrl(path) {
+    if (typeof URL === "undefined" || !urlRe.test(path))
+        return null;
+    try {
+        return new URL(path).href;
+    } catch (e) {
+        return null;
+    }
+}
+
+function resolveUrl(originPath, includePath) {
+    if (typeof URL === "undefined" || !urlRe.test(originPath) || urlRe.test(includePath))
+        return null;
+    try {
+        return new URL(includePath, originPath).href;
+    } catch (e) {
+        return null;
+    }
+}
+
+var isAbsolute =
+/**
+ * Tests if the specified path is absolute.
+ * @param {string} path Path to test
+ * @returns {boolean} `true` if path is absolute
+ */
+path.isAbsolute = function isAbsolute(path) {
+    return /^(?:\/|\w+:|\\\\\w+)/.test(path);
+};
+
+var normalize =
+/**
+ * Normalizes the specified path.
+ * @param {string} path Path to normalize
+ * @returns {string} Normalized path
+ */
+path.normalize = function normalize(path) {
+    var normalizedUrl = normalizeUrl(path);
+    if (normalizedUrl)
+        return normalizedUrl;
+    var firstTwoCharacters = path.substring(0,2);
+    var uncPrefix = "";
+    if (firstTwoCharacters === "\\\\") {
+        uncPrefix = firstTwoCharacters;
+        path = path.substring(2);
+    }
+
+    path = path.replace(/\\/g, "/")
+               .replace(/\/{2,}/g, "/");
+    var parts    = path.split("/"),
+        absolute = isAbsolute(path),
+        prefix   = "";
+    if (absolute)
+        prefix = parts.shift() + "/";
+    for (var i = 0; i < parts.length;) {
+        if (parts[i] === "..") {
+            if (i > 0 && parts[i - 1] !== "..")
+                parts.splice(--i, 2);
+            else if (absolute)
+                parts.splice(i, 1);
+            else
+                ++i;
+        } else if (parts[i] === ".")
+            parts.splice(i, 1);
+        else
+            ++i;
+    }
+    return uncPrefix + prefix + parts.join("/");
+};
+
+/**
+ * Resolves the specified include path against the specified origin path.
+ * @param {string} originPath Path to the origin file
+ * @param {string} includePath Include path relative to origin path
+ * @param {boolean} [alreadyNormalized=false] `true` if both paths are already known to be normalized
+ * @returns {string} Path to the include file
+ */
+path.resolve = function resolve(originPath, includePath, alreadyNormalized) {
+    var resolvedUrl = resolveUrl(originPath, includePath);
+    if (resolvedUrl)
+        return resolvedUrl;
+    if (!alreadyNormalized)
+        includePath = normalize(includePath); // path or absolute url
+    if (isAbsolute(includePath))
+        return includePath;
+    if (!alreadyNormalized)
+        originPath = normalize(originPath);
+    return (originPath = originPath.replace(/(?:\/|^)[^/]+$/, "")).length ? normalize(originPath + "/" + includePath) : includePath;
+};
+
+},{}],39:[function(require,module,exports){
+"use strict";
+
+var patterns = exports;
+
+patterns.numberRe    = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/;
+patterns.typeRefRe   = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/;
+patterns.reservedRe  = /^(?:do|if|in|for|let|new|try|var|case|else|enum|eval|false|null|this|true|void|with|break|catch|class|const|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/;
+
+},{}],40:[function(require,module,exports){
+"use strict";
+module.exports = pool;
+
+/**
+ * An allocator as used by {@link util.pool}.
+ * @typedef PoolAllocator
+ * @type {function}
+ * @param {number} size Buffer size
+ * @returns {Uint8Array} Buffer
+ */
+
+/**
+ * A slicer as used by {@link util.pool}.
+ * @typedef PoolSlicer
+ * @type {function}
+ * @param {number} start Start offset
+ * @param {number} end End offset
+ * @returns {Uint8Array} Buffer slice
+ * @this Uint8Array
+ */
+
+/**
+ * A general purpose buffer pool.
+ * @memberof util
+ * @function
+ * @param {PoolAllocator} alloc Allocator
+ * @param {PoolSlicer} slice Slicer
+ * @param {number} [size=8192] Slab size
+ * @returns {PoolAllocator} Pooled allocator
+ */
+function pool(alloc, slice, size) {
+    var SIZE   = size || 8192;
+    var MAX    = SIZE >>> 1;
+    var slab   = null;
+    var offset = SIZE;
+    return function pool_alloc(size) {
+        if (size < 1 || size > MAX)
+            return alloc(size);
+        if (offset + size > SIZE) {
+            slab = alloc(SIZE);
+            offset = 0;
+        }
+        var buf = slice.call(slab, offset, offset += size);
+        if (offset & 7) // align to 32 bit
+            offset = (offset | 7) + 1;
+        return buf;
+    };
+}
+
+},{}],41:[function(require,module,exports){
+"use strict";
+
+/**
+ * A minimal UTF8 implementation for number arrays.
+ * @memberof util
+ * @namespace
+ */
+var utf8 = exports,
+    replacementChar = "\ufffd",
+    strictDecoder;
+
+try {
+    strictDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+} catch (err) {
+    // "fatal" option is not supported on Node.js compiled without ICU
+    strictDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
+}
+
+/**
+ * Calculates the UTF8 byte length of a string.
+ * @param {string} string String
+ * @returns {number} Byte length
+ */
+utf8.length = function utf8_length(string) {
+    var len = 0,
+        c = 0;
+    for (var i = 0; i < string.length; ++i) {
+        c = string.charCodeAt(i);
+        if (c < 128)
+            len += 1;
+        else if (c < 2048)
+            len += 2;
+        else if ((c & 0xFC00) === 0xD800 && (string.charCodeAt(i + 1) & 0xFC00) === 0xDC00) {
+            ++i;
+            len += 4;
+        } else
+            len += 3;
+    }
+    return len;
+};
+
+function utf8_read_js(buffer, start, end, str) {
+    for (var i = start; i < end;) {
+        var t = buffer[i++];
+        if (t <= 0x7F) {
+            str += String.fromCharCode(t);
+        } else if (t >= 0xC0 && t < 0xE0) {
+            var c2 = (t & 0x1F) << 6 | buffer[i++] & 0x3F;
+            str += c2 >= 0x80 ? String.fromCharCode(c2) : replacementChar;
+        } else if (t >= 0xE0 && t < 0xF0) {
+            var c3 = (t & 0xF) << 12 | (buffer[i++] & 0x3F) << 6 | buffer[i++] & 0x3F;
+            str += c3 >= 0x800 ? String.fromCharCode(c3) : replacementChar;
+        } else if (t >= 0xF0) {
+            var t2 = (t & 7) << 18 | (buffer[i++] & 0x3F) << 12 | (buffer[i++] & 0x3F) << 6 | buffer[i++] & 0x3F;
+            if (t2 < 0x10000 || t2 > 0x10FFFF)
+                str += replacementChar;
+            else {
+                t2 -= 0x10000;
+                str += String.fromCharCode(0xD800 + (t2 >> 10));
+                str += String.fromCharCode(0xDC00 + (t2 & 0x3FF));
+            }
+        }
+    }
+    return str;
+}
+
+/**
+ * Reads UTF8 bytes as a string.
+ * @param {Uint8Array} buffer Source buffer
+ * @param {number} start Source start
+ * @param {number} end Source end
+ * @returns {string} String read
+ */
+utf8.read = function utf8_read_ascii(buffer, start, end) {
+    if (end - start < 1)
+        return "";
+
+    var str = "",
+        i = start,
+        c1, c2, c3, c4, c5, c6, c7, c8;
+
+    for (; i + 7 < end; i += 8) {
+        c1 = buffer[i];
+        c2 = buffer[i + 1];
+        c3 = buffer[i + 2];
+        c4 = buffer[i + 3];
+        c5 = buffer[i + 4];
+        c6 = buffer[i + 5];
+        c7 = buffer[i + 6];
+        c8 = buffer[i + 7];
+        if ((c1 | c2 | c3 | c4 | c5 | c6 | c7 | c8) & 0x80)
+            return utf8_read_js(buffer, i, end, str);
+        str += String.fromCharCode(c1, c2, c3, c4, c5, c6, c7, c8);
+    }
+
+    for (; i < end; ++i) {
+        c1 = buffer[i];
+        if (c1 & 0x80)
+            return utf8_read_js(buffer, i, end, str);
+        str += String.fromCharCode(c1);
+    }
+
+    return str;
+};
+
+function utf8_read_strict(buffer, start, end) {
+    var source = start === 0 && end === buffer.length
+        ? buffer
+        : buffer.subarray
+            ? buffer.subarray(start, end)
+            : buffer.slice(start, end);
+    if (Array.isArray(source))
+        source = Uint8Array.from(source);
+    return strictDecoder.decode(source);
+}
+
+/**
+ * Reads UTF8 bytes as a string, rejecting invalid UTF8.
+ * @param {Uint8Array} buffer Source buffer
+ * @param {number} start Source start
+ * @param {number} end Source end
+ * @returns {string} String read
+ */
+utf8.readStrict = function utf8_read_strict_ascii(buffer, start, end) {
+    if (end - start < 1)
+        return "";
+
+    var str = "",
+        i = start,
+        c1, c2, c3, c4, c5, c6, c7, c8;
+
+    for (; i + 7 < end; i += 8) {
+        c1 = buffer[i];
+        c2 = buffer[i + 1];
+        c3 = buffer[i + 2];
+        c4 = buffer[i + 3];
+        c5 = buffer[i + 4];
+        c6 = buffer[i + 5];
+        c7 = buffer[i + 6];
+        c8 = buffer[i + 7];
+        if ((c1 | c2 | c3 | c4 | c5 | c6 | c7 | c8) & 0x80)
+            return str + utf8_read_strict(buffer, i, end);
+        str += String.fromCharCode(c1, c2, c3, c4, c5, c6, c7, c8);
+    }
+
+    for (; i < end; ++i) {
+        c1 = buffer[i];
+        if (c1 & 0x80)
+            return str + utf8_read_strict(buffer, i, end);
+        str += String.fromCharCode(c1);
+    }
+
+    return str;
+};
+
+/**
+ * Writes a string as UTF8 bytes.
+ * @param {string} string Source string
+ * @param {Uint8Array} buffer Destination buffer
+ * @param {number} offset Destination offset
+ * @returns {number} Bytes written
+ */
+utf8.write = function utf8_write(string, buffer, offset) {
+    var start = offset,
+        c1, // character 1
+        c2; // character 2
+    for (var i = 0; i < string.length; ++i) {
+        c1 = string.charCodeAt(i);
+        if (c1 < 128) {
+            buffer[offset++] = c1;
+        } else if (c1 < 2048) {
+            buffer[offset++] = c1 >> 6       | 192;
+            buffer[offset++] = c1       & 63 | 128;
+        } else if ((c1 & 0xFC00) === 0xD800 && ((c2 = string.charCodeAt(i + 1)) & 0xFC00) === 0xDC00) {
+            c1 = 0x10000 + ((c1 & 0x03FF) << 10) + (c2 & 0x03FF);
+            ++i;
+            buffer[offset++] = c1 >> 18      | 240;
+            buffer[offset++] = c1 >> 12 & 63 | 128;
+            buffer[offset++] = c1 >> 6  & 63 | 128;
+            buffer[offset++] = c1       & 63 | 128;
+        } else {
+            buffer[offset++] = c1 >> 12      | 224;
+            buffer[offset++] = c1 >> 6  & 63 | 128;
+            buffer[offset++] = c1       & 63 | 128;
+        }
+    }
+    return offset - start;
+};
+
+},{}],42:[function(require,module,exports){
 "use strict";
 module.exports = verifier;
 
-var Enum      = require(15),
-    util      = require(37);
+var Enum      = require(6),
+    util      = require(28);
 
 function invalid(field, expected) {
     return field.name + ": " + expected + (field.repeated && expected !== "array" ? "[]" : field.map && expected !== "object" ? "{k:"+field.keyType+"}" : "") + " expected";
@@ -8245,20 +9898,25 @@ function invalid(field, expected) {
  */
 function genVerifyValue(gen, field, fieldIndex, ref) {
     /* eslint-disable no-unexpected-multiline */
-    if (field.resolvedType) {
-        if (field.resolvedType instanceof Enum) { gen
-            ("switch(%s){", ref)
-                ("default:")
+    var resolvedType = field.resolvedType;
+    if (resolvedType) {
+        if (resolvedType instanceof Enum) {
+            if (resolvedType._features.enum_type === "CLOSED") { gen
+                ("switch(%s){", ref)
+                    ("default:")
+                        ("return%j", invalid(field, "enum value"));
+                for (var keys = Object.keys(resolvedType.values), j = 0; j < keys.length; ++j) gen
+                    ("case %i:", resolvedType.values[keys[j]]);
+                gen
+                        ("break")
+                ("}");
+            } else gen
+                ("if(typeof %s!==\"number\"||(%s|0)!==%s)", ref, ref, ref)
                     ("return%j", invalid(field, "enum value"));
-            for (var keys = Object.keys(field.resolvedType.values), j = 0; j < keys.length; ++j) gen
-                ("case %i:", field.resolvedType.values[keys[j]]);
-            gen
-                    ("break")
-            ("}");
         } else {
             gen
             ("{")
-                ("var e=types[%i].verify(%s);", fieldIndex, ref)
+                ("var e=types[%i].verify(%s,q+1);", fieldIndex, ref)
                 ("if(e)")
                     ("return%j+e", field.name + ".")
             ("}");
@@ -8348,9 +10006,12 @@ function genVerifyKey(gen, field, ref) {
 function verifier(mtype) {
     /* eslint-disable no-unexpected-multiline */
 
-    var gen = util.codegen(["m"], mtype.name + "$verify")
+    var gen = util.codegen(["m", "q"])
     ("if(typeof m!==\"object\"||m===null)")
-        ("return%j", "object expected");
+        ("return%j", "object expected")
+    ("if(q===undefined)q=0")
+    ("if(q>util.recursionLimit)")
+        ("return%j", "max depth exceeded");
     var oneofs = mtype.oneofsArray,
         seenFirstField = {};
     if (oneofs.length) gen
@@ -8361,7 +10022,7 @@ function verifier(mtype) {
             ref   = "m" + util.safeProp(field.name);
 
         if (field.optional) gen
-        ("if(%s!=null&&m.hasOwnProperty(%j)){", ref, field.name); // !== undefined && !== null
+        ("if(%s!=null&&Object.hasOwnProperty.call(m,%j)){", ref, field.name); // !== undefined && !== null
 
         // map fields
         if (field.map) { gen
@@ -8401,7 +10062,8 @@ function verifier(mtype) {
     ("return null");
     /* eslint-enable no-unexpected-multiline */
 }
-},{"15":15,"37":37}],41:[function(require,module,exports){
+
+},{"28":28,"6":6}],43:[function(require,module,exports){
 "use strict";
 
 /**
@@ -8411,7 +10073,8 @@ function verifier(mtype) {
  */
 var wrappers = exports;
 
-var Message = require(21);
+var Message = require(12),
+    util    = require(37);
 
 /**
  * From object converter part of an {@link IWrapper}.
@@ -8442,13 +10105,13 @@ var Message = require(21);
 // Custom wrapper for Any
 wrappers[".google.protobuf.Any"] = {
 
-    fromObject: function(object) {
+    fromObject: function(object, depth) {
 
         // unwrap value type if mapped
         if (object && object["@type"]) {
              // Only use fully qualified type name after the last '/'
             var name = object["@type"].substring(object["@type"].lastIndexOf("/") + 1);
-            var type = this.lookup(name);
+            var type = this.lookup(name, [ this.constructor ]);
             /* istanbul ignore else */
             if (type) {
                 // type_url does not accept leading "."
@@ -8460,36 +10123,39 @@ wrappers[".google.protobuf.Any"] = {
                 }
                 return this.create({
                     type_url: type_url,
-                    value: type.encode(type.fromObject(object)).finish()
+                    value: type.encode(type.fromObject(object, depth === undefined ? 1 : depth + 1)).finish()
                 });
             }
         }
 
-        return this.fromObject(object);
+        return this.fromObject(object, depth);
     },
 
-    toObject: function(message, options) {
+    toObject: function(message, options, depth) {
+        if (depth === undefined)
+            depth = 0;
+        if (depth > util.recursionLimit)
+            throw Error("max depth exceeded");
 
         // Default prefix
         var googleApi = "type.googleapis.com/";
         var prefix = "";
         var name = "";
-
         // decode value if requested and unmapped
         if (options && options.json && message.type_url && message.value) {
             // Only use fully qualified type name after the last '/'
             name = message.type_url.substring(message.type_url.lastIndexOf("/") + 1);
             // Separate the prefix used
             prefix = message.type_url.substring(0, message.type_url.lastIndexOf("/") + 1);
-            var type = this.lookup(name);
+            var type = this.lookup(name, [ this.constructor ]);
             /* istanbul ignore else */
             if (type)
-                message = type.decode(message.value);
+                message = type.decode(message.value, undefined, undefined, depth + 1);
         }
 
         // wrap value if unmapped
         if (!(message instanceof this.ctor) && message instanceof Message) {
-            var object = message.$type.toObject(message, options);
+            var object = message.$type.toObject(message, options, depth + 1);
             var messageName = message.$type.fullName[0] === "." ?
                 message.$type.fullName.slice(1) : message.$type.fullName;
             // Default to type.googleapis.com prefix if no prefix is used
@@ -8501,15 +10167,15 @@ wrappers[".google.protobuf.Any"] = {
             return object;
         }
 
-        return this.toObject(message, options);
+        return this.toObject(message, options, depth);
     }
 };
 
-},{"21":21}],42:[function(require,module,exports){
+},{"12":12,"37":37}],44:[function(require,module,exports){
 "use strict";
 module.exports = Writer;
 
-var util      = require(39);
+var util      = require(37);
 
 var BufferWriter; // cyclic
 
@@ -8681,6 +10347,11 @@ function writeByte(val, buf, pos) {
     buf[pos] = val & 255;
 }
 
+function writeStringAscii(val, buf, pos) {
+    for (var i = 0; i < val.length;)
+        buf[pos++] = val.charCodeAt(i++);
+}
+
 function writeVarint32(val, buf, pos) {
     while (val > 127) {
         buf[pos++] = val & 127 | 128;
@@ -8733,7 +10404,7 @@ Writer.prototype.uint32 = function write_uint32(value) {
  * @returns {Writer} `this`
  */
 Writer.prototype.int32 = function write_int32(value) {
-    return value < 0
+    return (value |= 0) < 0
         ? this._push(writeVarint64, 10, LongBits.fromNumber(value)) // 10 bytes per spec
         : this.uint32(value);
 };
@@ -8748,16 +10419,18 @@ Writer.prototype.sint32 = function write_sint32(value) {
 };
 
 function writeVarint64(val, buf, pos) {
-    while (val.hi) {
-        buf[pos++] = val.lo & 127 | 128;
-        val.lo = (val.lo >>> 7 | val.hi << 25) >>> 0;
-        val.hi >>>= 7;
+    var lo = val.lo,
+        hi = val.hi;
+    while (hi) {
+        buf[pos++] = lo & 127 | 128;
+        lo = (lo >>> 7 | hi << 25) >>> 0;
+        hi >>>= 7;
     }
-    while (val.lo > 127) {
-        buf[pos++] = val.lo & 127 | 128;
-        val.lo = val.lo >>> 7;
+    while (lo > 127) {
+        buf[pos++] = lo & 127 | 128;
+        lo = lo >>> 7;
     }
-    buf[pos++] = val.lo;
+    buf[pos++] = lo;
 }
 
 /**
@@ -8892,6 +10565,16 @@ Writer.prototype.bytes = function write_bytes(value) {
 };
 
 /**
+ * Writes raw bytes without a tag or length prefix.
+ * @param {Uint8Array} value Raw bytes
+ * @returns {Writer} `this`
+ */
+Writer.prototype.raw = function write_raw(value) {
+    var len = value.length >>> 0;
+    return len ? this._push(writeBytes, len, value) : this;
+};
+
+/**
  * Writes a string.
  * @param {string} value Value to write
  * @returns {Writer} `this`
@@ -8899,7 +10582,7 @@ Writer.prototype.bytes = function write_bytes(value) {
 Writer.prototype.string = function write_string(value) {
     var len = utf8.length(value);
     return len
-        ? this.uint32(len)._push(utf8.write, len, value)
+        ? this.uint32(len)._push(len === value.length ? writeStringAscii : utf8.write, len, value)
         : this._push(writeByte, 1, 0);
 };
 
@@ -8954,15 +10637,28 @@ Writer.prototype.ldelim = function ldelim() {
  * @returns {Uint8Array} Finished buffer
  */
 Writer.prototype.finish = function finish() {
-    var head = this.head.next, // skip noop
-        buf  = this.constructor.alloc(this.len),
-        pos  = 0;
+    return this.finishInto(this.constructor.alloc(this.len), 0);
+};
+
+/**
+ * Finishes the write operation, writing into the provided buffer.
+ * The caller must ensure that `buf` has enough space starting at `offset`
+ * to hold {@link Writer#len} bytes.
+ * @param {T} buf Target buffer
+ * @param {number} [offset=0] Offset to start writing at
+ * @returns {T} The provided buffer
+ * @template T extends Uint8Array
+ */
+Writer.prototype.finishInto = function finishInto(buf, offset) {
+    if (offset === undefined)
+        offset = 0;
+    var head = this.head.next,
+        pos  = offset;
     while (head) {
         head.fn(head.val, buf, pos);
         pos += head.len;
         head = head.next;
     }
-    // this.head = this.tail = null;
     return buf;
 };
 
@@ -8972,15 +10668,22 @@ Writer._configure = function(BufferWriter_) {
     BufferWriter._configure();
 };
 
-},{"39":39}],43:[function(require,module,exports){
+},{"37":37}],45:[function(require,module,exports){
 "use strict";
 module.exports = BufferWriter;
 
 // extends Writer
-var Writer = require(42);
-(BufferWriter.prototype = Object.create(Writer.prototype)).constructor = BufferWriter;
+var Writer = require(44);
+BufferWriter.prototype = Object.create(Writer.prototype, {
+    constructor: {
+        value: BufferWriter,
+        writable: true,
+        enumerable: false,
+        configurable: true
+    }
+});
 
-var util = require(39);
+var util = require(37);
 
 /**
  * Constructs a new buffer writer instance.
@@ -9029,6 +10732,23 @@ BufferWriter.prototype.bytes = function write_bytes_buffer(value) {
     return this;
 };
 
+/**
+ * Writes raw bytes without a tag or length prefix.
+ * @name BufferWriter#raw
+ * @function
+ * @param {Uint8Array} value Raw bytes
+ * @returns {BufferWriter} `this`
+ */
+BufferWriter.prototype.raw = function write_raw_buffer(value) {
+    var len = value.length >>> 0;
+    return len ? this._push(BufferWriter.writeBytesBuffer, len, value) : this;
+};
+
+function writeStringBufferAscii(val, buf, pos) {
+    for (var i = 0; i < val.length;)
+        buf[pos++] = val.charCodeAt(i++);
+}
+
 function writeStringBuffer(val, buf, pos) {
     if (val.length < 40) // plain js is faster for short strings (probably due to redundant assertions)
         util.utf8.write(val, buf, pos);
@@ -9045,7 +10765,7 @@ BufferWriter.prototype.string = function write_string_buffer(value) {
     var len = util.Buffer.byteLength(value);
     this.uint32(len);
     if (len)
-        this._push(writeStringBuffer, len, value);
+        this._push(len === value.length && len < 40 ? writeStringBufferAscii : writeStringBuffer, len, value);
     return this;
 };
 
@@ -9059,7 +10779,7 @@ BufferWriter.prototype.string = function write_string_buffer(value) {
 
 BufferWriter._configure();
 
-},{"39":39,"42":42}]},{},[19])
+},{"37":37,"44":44}]},{},[10])
 
 })();
 //# sourceMappingURL=protobuf.js.map
