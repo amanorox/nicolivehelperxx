@@ -1204,14 +1204,6 @@ var NicoLiveHelper = {
 
             let op_message = msg?.state?.marquee?.display?.operatorComment?.content;
             let user_message = msg?.message?.chat;
-            // {
-            //     "content": "新馬戦の予想なんてどう組み立ててるんかな",
-            //     "vpos": 1217767,
-            //     "accountStatus": 1,
-            //     "hashedUserId": "a:9W9yGj68Q_0swdPA",
-            //     "modifier": {},
-            //     "no": 333
-            // }
 
             let chat = {
                 premium: op_message ? 2 : 0,
@@ -1219,14 +1211,14 @@ var NicoLiveHelper = {
                 text: op_message || user_message?.content || "",
                 text_notag: op_message || user_message?.content || "",
                 name: user_message?.name || "",
-                user_id: user_message?.rawUserId || msg?.meta?.id || "0",
+                user_id: user_message?.rawUserId || user_message?.hashedUserId || msg?.meta?.id || "0",
                 no: user_message?.no || 0,
                 comment_no: user_message?.no || 0,
             };
             if( op_message || user_message ){
                 this.processComment( chat );
             }
-            console.log( `Op Comment: ${op_message}` );
+            // console.log( `Op Comment: ${op_message}` );
 
             if( msg.state != null ){
                 // update_state( msg );
@@ -1272,8 +1264,8 @@ var NicoLiveHelper = {
     },
 
     messageRetriever: async function* ( uri, decoder ){
-        // console.log( `message server uri: ${room.viewUri}` );
-        const res = await fetch( uri );
+        // show({"retrieve start": uri});
+        const res = await fetch( uri )
         if( res.ok ){
             const tmp = res.body.getReader();
             //productionではstreamが通信障害等で切れたときの対応も考える必要があります。その時はtmp.read()がエラーを出すはず
@@ -1292,23 +1284,21 @@ var NicoLiveHelper = {
                         yield decoder.decodeDelimited( buffer )
                     }catch( e ){
                         if( e instanceof RangeError ){
-                            console.log( e );
                             //protobufが途中でちぎれていた場合RangeErrorになるので未読分をunreadにつめる
-                            const uri = room.viewUri;
                             console.log( {err: "Range", current_pos, unread: (buffer.len - current_pos), uri} )
                             unread = buffer.buf.slice( current_pos, buffer.len );
                             break
                         }else{
-                            console.log( {"decode error": room.viewUri, "reason": e} );
-                            throw e;
+                            console.log( {"decode error": uri, "reason": e} );
+                            // throw e;
                         }
                     }
                 }
             }
             // show({"fetch completed": uri});
         }else{
-            console.log( {"status": res.status, "fetch error": room.viewUri} );
-            throw new Error( "fetch error", room.viewUri );
+            console.log( {"status": res.status, "fetch error": uri} );
+            // throw new Error( "fetch error", uri );
         }
     },
 
