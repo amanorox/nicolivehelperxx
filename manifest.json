@@ -47,17 +47,6 @@
     },
     {
       "matches": [
-        "*://com.nicovideo.jp/video/*"
-      ],
-      "js": [
-        "libs/browser-polyfill.js",
-        "libs/utils.js",
-        "content_scripts/communityvideo.js"
-      ],
-      "run_at": "document_end"
-    },
-    {
-      "matches": [
         "*://www.nicovideo.jp/tag/*",
         "*://www.nicovideo.jp/search/*",
         "*://www.nicovideo.jp/ranking*"
