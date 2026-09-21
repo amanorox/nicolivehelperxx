@@ -53,46 +53,88 @@ var VideoDB = {
         let str = $( '#input-video' ).val();
         if( str.length < 3 ) return;
 
-        $( '#information' ).text( '動画を追加/更新しています...' );
+        this._aborted = false;
+        this.setAddingState( true );
+
+        // 対象動画IDを収集する
+        let ids = [];
         let l = str.match( /(sm|nm|so)\d+|\d{10}/g );
         if( l ){
-            for( let i = 0, id; id = l[i]; i++ ){
-                try{
-                    let vinfo = await window.opener.NicoLiveHelper.getVideoInfo( id );
-                    this.db.videodb.put( vinfo );
-                    console.log( `${id}を追加しました` );
-                }catch( e ){
-                    console.log( `動画DBに追加失敗: ${id}` );
-                }
-            }
+            ids = ids.concat( l );
         }
-        l = str.match( /mylist\/\d+/g );
-        if( l ){
-            for( let i = 0, mylist; mylist = l[i]; i++ ){
+
+        let mylists = str.match( /mylist\/\d+/g );
+        if( mylists ){
+            $( '#information' ).text( 'マイリストを取得しています...' );
+            for( let mylist of mylists ){
+                if( this._aborted ) break;
                 let id = mylist.match( /mylist\/(\d+)/ )[1];
 
                 let result = await NicoApi.getMylist_v2( id );
                 if( result.ok ){
                     let mylistobj = JSON.parse( result.text );
-                    let videos = [];
                     console.log( mylistobj );
                     for( let item of mylistobj.data.mylist.items ){
-                        let v = item.video.id;
-                        try{
-                            let vinfo = await window.opener.NicoLiveHelper.getVideoInfo( v );
-                            this.db.videodb.put( vinfo );
-                            console.log( `${v}を追加しました` );
-                        }catch( e ){
-                            console.log( `動画DBに追加失敗: ${v}` );
-                        }
-
+                        ids.push( item.video.id );
                     }
                 }
             }
         }
 
-        $( '#information' ).text( 'DB追加/更新完了しました' );
-        $( '#input-video' ).val( '' );
+        let total = ids.length;
+        let count = 0;
+        let success = 0;
+        let failed = 0;
+
+        for( let id of ids ){
+            if( this._aborted ){
+                $( '#information' ).text( `中断しました (${count}/${total}件処理 / 成功:${success} 失敗:${failed})` );
+                break;
+            }
+
+            count++;
+            $( '#information' ).text( `動画を追加/更新しています... (${count}/${total})` );
+            try{
+                let vinfo = await window.opener.NicoLiveHelper.getVideoInfo( id );
+                this.db.videodb.put( vinfo );
+                success++;
+                console.log( `${id}を追加しました` );
+            }catch( e ){
+                failed++;
+                console.log( `動画DBに追加失敗: ${id}` );
+            }
+        }
+
+        if( !this._aborted ){
+            $( '#information' ).text( `DB追加/更新完了しました (${total}件中 成功:${success} 失敗:${failed})` );
+            $( '#input-video' ).val( '' );
+        }
+
+        this.setAddingState( false );
+    },
+
+    /**
+     * 追加/更新処理の中断を要求する.
+     */
+    abortAddVideos: function(){
+        this._aborted = true;
+        $( '#information' ).text( '中断しています...' );
+    },
+
+    /**
+     * 追加/更新中のUI状態を切り替える.
+     * @param adding
+     */
+    setAddingState: function( adding ){
+        if( adding ){
+            $( '#btn-add-db' ).prop( 'disabled', true );
+            $( '#input-video' ).prop( 'disabled', true );
+            $( '#btn-abort-db' ).show();
+        }else{
+            $( '#btn-add-db' ).prop( 'disabled', false );
+            $( '#input-video' ).prop( 'disabled', false );
+            $( '#btn-abort-db' ).hide();
+        }
     },
 
     test: async function(){
@@ -565,6 +607,9 @@ var VideoDB = {
 
         $( '#btn-add-db' ).on( 'click', ( ev ) =>{
             this.addVideos();
+        } );
+        $( '#btn-abort-db' ).on( 'click', ( ev ) =>{
+            this.abortAddVideos();
         } );
         $( '#btn-search' ).on( 'click', ( ev ) =>{
             this.searchVideos();
