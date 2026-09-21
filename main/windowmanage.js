@@ -69,10 +69,8 @@ window.addEventListener( 'load', async ( ev ) =>{
             browser.windows.update( win.id, {
                 left: pos.x,
                 top: pos.y,
-                // width: pos.w,
-                // height: pos.h
-                width: w,
-                height: h
+                width: pos.w || w,
+                height: pos.h || h
             } )
         }
     }
