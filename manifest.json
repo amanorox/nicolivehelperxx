@@ -1,11 +1,11 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "New NicoLive Helper",
   "version": "0.27",
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "nicolivehelperxx@miku39.jp",
-      "strict_min_version": "58.0"
+      "strict_min_version": "109.0"
     }
   },
   "description": "New NicoLive Helper",
@@ -15,7 +15,6 @@
     "96": "icons/icon-96.png"
   },
   "permissions": [
-    "*://*.nicovideo.jp/*",
     "contextMenus",
     "notifications",
     "storage",
@@ -23,6 +22,9 @@
     "activeTab",
     "clipboardWrite",
     "downloads"
+  ],
+  "host_permissions": [
+    "*://*.nicovideo.jp/*"
   ],
   "content_scripts": [
     {
@@ -41,6 +43,7 @@
         "https://live2.nicovideo.jp/create*"
       ],
       "js": [
+        "libs/browser-polyfill.js",
         "content_scripts/autocreate.js"
       ],
       "run_at": "document_end"
@@ -70,7 +73,7 @@
       "run_at": "document_end"
     }
   ],
-  "browser_action": {
+  "action": {
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -80,6 +83,7 @@
     "default_title": "New NicoLive Helper"
   },
   "background": {
+    "service_worker": "bg/background.js",
     "scripts": [
       "libs/browser-polyfill.js",
       "libs/utils.js",
@@ -87,7 +91,6 @@
     ]
   },
   "options_ui": {
-    "page": "options/options.html",
-    "chrome_style": true
+    "page": "options/options.html"
   }
 }

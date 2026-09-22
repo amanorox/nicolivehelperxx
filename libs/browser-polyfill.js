@@ -10,8 +10,8 @@
     factory(mod);
     global.browser = mod.exports;
   }
-})(this, function (module) {
-  /* webextension-polyfill - v0.2.1 - Mon Mar 12 2018 22:15:37 */
+})(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this, function (module) {
+  /* webextension-polyfill - v0.12.0 - Tue May 14 2024 18:01:29 */
   /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
   /* vim: set sts=2 sw=2 et tw=80: */
   /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -19,13 +19,18 @@
    * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
   "use strict";
 
-  if (typeof browser === "undefined") {
+  if (!(globalThis.chrome && globalThis.chrome.runtime && globalThis.chrome.runtime.id)) {
+    throw new Error("This script should only be loaded in a browser extension.");
+  }
+  if (!(globalThis.browser && globalThis.browser.runtime && globalThis.browser.runtime.id)) {
+    const CHROME_SEND_MESSAGE_CALLBACK_NO_RESPONSE_MESSAGE = "The message port closed before a response was received.";
+
     // Wrapping the bulk of this polyfill in a one-time-use function is a minor
     // optimization for Firefox. Since Spidermonkey does not fully parse the
     // contents of a function until the first time it's called, and since it will
     // never actually need to be called, this allows the polyfill to be included
     // in Firefox nearly for free.
-    const wrapAPIs = () => {
+    const wrapAPIs = extensionAPIs => {
       // NOTE: apiMetadata is associated to the content of the api-metadata.json file
       // at build time by replacing the following "include" with the content of the
       // JSON file.
@@ -53,10 +58,6 @@
             "minArgs": 1,
             "maxArgs": 1
           },
-          "export": {
-            "minArgs": 0,
-            "maxArgs": 0
-          },
           "get": {
             "minArgs": 1,
             "maxArgs": 1
@@ -69,15 +70,11 @@
             "minArgs": 1,
             "maxArgs": 1
           },
-          "getTree": {
-            "minArgs": 0,
-            "maxArgs": 0
-          },
           "getSubTree": {
             "minArgs": 1,
             "maxArgs": 1
           },
-          "import": {
+          "getTree": {
             "minArgs": 0,
             "maxArgs": 0
           },
@@ -103,6 +100,16 @@
           }
         },
         "browserAction": {
+          "disable": {
+            "minArgs": 0,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
+          "enable": {
+            "minArgs": 0,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
           "getBadgeBackgroundColor": {
             "minArgs": 1,
             "maxArgs": 1
@@ -119,9 +126,75 @@
             "minArgs": 1,
             "maxArgs": 1
           },
+          "openPopup": {
+            "minArgs": 0,
+            "maxArgs": 0
+          },
+          "setBadgeBackgroundColor": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
+          "setBadgeText": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
           "setIcon": {
             "minArgs": 1,
             "maxArgs": 1
+          },
+          "setPopup": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
+          "setTitle": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          }
+        },
+        "browsingData": {
+          "remove": {
+            "minArgs": 2,
+            "maxArgs": 2
+          },
+          "removeCache": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removeCookies": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removeDownloads": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removeFormData": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removeHistory": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removeLocalStorage": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removePasswords": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "removePluginData": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "settings": {
+            "minArgs": 0,
+            "maxArgs": 0
           }
         },
         "commands": {
@@ -131,10 +204,6 @@
           }
         },
         "contextMenus": {
-          "update": {
-            "minArgs": 2,
-            "maxArgs": 2
-          },
           "remove": {
             "minArgs": 1,
             "maxArgs": 1
@@ -142,6 +211,10 @@
           "removeAll": {
             "minArgs": 0,
             "maxArgs": 0
+          },
+          "update": {
+            "minArgs": 2,
+            "maxArgs": 2
           }
         },
         "cookies": {
@@ -170,7 +243,8 @@
           "inspectedWindow": {
             "eval": {
               "minArgs": 1,
-              "maxArgs": 2
+              "maxArgs": 2,
+              "singleCallbackArg": false
             }
           },
           "panels": {
@@ -178,15 +252,21 @@
               "minArgs": 3,
               "maxArgs": 3,
               "singleCallbackArg": true
+            },
+            "elements": {
+              "createSidebarPane": {
+                "minArgs": 1,
+                "maxArgs": 1
+              }
             }
           }
         },
         "downloads": {
-          "download": {
+          "cancel": {
             "minArgs": 1,
             "maxArgs": 1
           },
-          "cancel": {
+          "download": {
             "minArgs": 1,
             "maxArgs": 1
           },
@@ -200,7 +280,8 @@
           },
           "open": {
             "minArgs": 1,
-            "maxArgs": 1
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
           },
           "pause": {
             "minArgs": 1,
@@ -220,7 +301,8 @@
           },
           "show": {
             "minArgs": 1,
-            "maxArgs": 1
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
           }
         },
         "extension": {
@@ -238,10 +320,6 @@
             "minArgs": 1,
             "maxArgs": 1
           },
-          "getVisits": {
-            "minArgs": 1,
-            "maxArgs": 1
-          },
           "deleteAll": {
             "minArgs": 0,
             "maxArgs": 0
@@ -251,6 +329,10 @@
             "maxArgs": 1
           },
           "deleteUrl": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "getVisits": {
             "minArgs": 1,
             "maxArgs": 1
           },
@@ -294,6 +376,10 @@
             "minArgs": 0,
             "maxArgs": 0
           },
+          "setEnabled": {
+            "minArgs": 2,
+            "maxArgs": 2
+          },
           "uninstallSelf": {
             "minArgs": 0,
             "maxArgs": 1
@@ -331,24 +417,50 @@
             "maxArgs": 1
           },
           "hide": {
-            "minArgs": 0,
-            "maxArgs": 0
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
           },
           "setIcon": {
             "minArgs": 1,
             "maxArgs": 1
           },
+          "setPopup": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
+          "setTitle": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          },
           "show": {
+            "minArgs": 1,
+            "maxArgs": 1,
+            "fallbackToNoCallback": true
+          }
+        },
+        "permissions": {
+          "contains": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "getAll": {
             "minArgs": 0,
             "maxArgs": 0
+          },
+          "remove": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
+          "request": {
+            "minArgs": 1,
+            "maxArgs": 1
           }
         },
         "runtime": {
           "getBackgroundPage": {
-            "minArgs": 0,
-            "maxArgs": 0
-          },
-          "getBrowserInfo": {
             "minArgs": 0,
             "maxArgs": 0
           },
@@ -374,6 +486,20 @@
           },
           "setUninstallURL": {
             "minArgs": 1,
+            "maxArgs": 1
+          }
+        },
+        "sessions": {
+          "getDevices": {
+            "minArgs": 0,
+            "maxArgs": 1
+          },
+          "getRecentlyClosed": {
+            "minArgs": 0,
+            "maxArgs": 1
+          },
+          "restore": {
+            "minArgs": 0,
             "maxArgs": 1
           }
         },
@@ -434,15 +560,19 @@
           }
         },
         "tabs": {
-          "create": {
-            "minArgs": 1,
-            "maxArgs": 1
-          },
           "captureVisibleTab": {
             "minArgs": 0,
             "maxArgs": 2
           },
+          "create": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
           "detectLanguage": {
+            "minArgs": 0,
+            "maxArgs": 1
+          },
+          "discard": {
             "minArgs": 0,
             "maxArgs": 1
           },
@@ -470,6 +600,14 @@
             "minArgs": 0,
             "maxArgs": 1
           },
+          "goBack": {
+            "minArgs": 0,
+            "maxArgs": 1
+          },
+          "goForward": {
+            "minArgs": 0,
+            "maxArgs": 1
+          },
           "highlight": {
             "minArgs": 1,
             "maxArgs": 1
@@ -482,15 +620,15 @@
             "minArgs": 2,
             "maxArgs": 2
           },
+          "query": {
+            "minArgs": 1,
+            "maxArgs": 1
+          },
           "reload": {
             "minArgs": 0,
             "maxArgs": 2
           },
           "remove": {
-            "minArgs": 1,
-            "maxArgs": 1
-          },
-          "query": {
             "minArgs": 1,
             "maxArgs": 1
           },
@@ -513,6 +651,12 @@
           "update": {
             "minArgs": 1,
             "maxArgs": 2
+          }
+        },
+        "topSites": {
+          "get": {
+            "minArgs": 0,
+            "maxArgs": 0
           }
         },
         "webNavigation": {
@@ -562,7 +706,6 @@
           }
         }
       };
-
       if (Object.keys(apiMetadata).length === 0) {
         throw new Error("api-metadata.json has not been included in browser-polyfill");
       }
@@ -582,12 +725,10 @@
           super(items);
           this.createItem = createItem;
         }
-
         get(key) {
           if (!this.has(key)) {
             this.set(key, this.createItem(key));
           }
-
           return super.get(key);
         }
       }
@@ -619,28 +760,33 @@
        *        promise.
        * @param {function} promise.resolve
        *        The promise's resolution function.
-       * @param {function} promise.rejection
+       * @param {function} promise.reject
        *        The promise's rejection function.
        * @param {object} metadata
        *        Metadata about the wrapped method which has created the callback.
-       * @param {integer} metadata.maxResolvedArgs
-       *        The maximum number of arguments which may be passed to the
-       *        callback created by the wrapped async function.
+       * @param {boolean} metadata.singleCallbackArg
+       *        Whether or not the promise is resolved with only the first
+       *        argument of the callback, alternatively an array of all the
+       *        callback arguments is resolved. By default, if the callback
+       *        function is invoked with only a single argument, that will be
+       *        resolved to the promise, while all arguments will be resolved as
+       *        an array if multiple are given.
        *
        * @returns {function}
        *        The generated callback function.
        */
       const makeCallback = (promise, metadata) => {
         return (...callbackArgs) => {
-          if (chrome.runtime.lastError) {
-            promise.reject(chrome.runtime.lastError);
-          } else if (metadata.singleCallbackArg || callbackArgs.length === 1) {
+          if (extensionAPIs.runtime.lastError) {
+            promise.reject(new Error(extensionAPIs.runtime.lastError.message));
+          } else if (metadata.singleCallbackArg || callbackArgs.length <= 1 && metadata.singleCallbackArg !== false) {
             promise.resolve(callbackArgs[0]);
           } else {
             promise.resolve(callbackArgs);
           }
         };
       };
+      const pluralizeArguments = numArgs => numArgs == 1 ? "argument" : "arguments";
 
       /**
        * Creates a wrapper function for a method with the given name and metadata.
@@ -657,27 +803,54 @@
        *        The maximum number of arguments which may be passed to the
        *        function. If called with more than this number of arguments, the
        *        wrapper will raise an exception.
-       * @param {integer} metadata.maxResolvedArgs
-       *        The maximum number of arguments which may be passed to the
-       *        callback created by the wrapped async function.
+       * @param {boolean} metadata.singleCallbackArg
+       *        Whether or not the promise is resolved with only the first
+       *        argument of the callback, alternatively an array of all the
+       *        callback arguments is resolved. By default, if the callback
+       *        function is invoked with only a single argument, that will be
+       *        resolved to the promise, while all arguments will be resolved as
+       *        an array if multiple are given.
        *
        * @returns {function(object, ...*)}
        *       The generated wrapper function.
        */
       const wrapAsyncFunction = (name, metadata) => {
-        const pluralizeArguments = numArgs => numArgs == 1 ? "argument" : "arguments";
-
         return function asyncFunctionWrapper(target, ...args) {
           if (args.length < metadata.minArgs) {
             throw new Error(`Expected at least ${metadata.minArgs} ${pluralizeArguments(metadata.minArgs)} for ${name}(), got ${args.length}`);
           }
-
           if (args.length > metadata.maxArgs) {
             throw new Error(`Expected at most ${metadata.maxArgs} ${pluralizeArguments(metadata.maxArgs)} for ${name}(), got ${args.length}`);
           }
-
           return new Promise((resolve, reject) => {
-            target[name](...args, makeCallback({ resolve, reject }, metadata));
+            if (metadata.fallbackToNoCallback) {
+              // This API method has currently no callback on Chrome, but it return a promise on Firefox,
+              // and so the polyfill will try to call it with a callback first, and it will fallback
+              // to not passing the callback if the first call fails.
+              try {
+                target[name](...args, makeCallback({
+                  resolve,
+                  reject
+                }, metadata));
+              } catch (cbError) {
+                console.warn(`${name} API method doesn't seem to support the callback parameter, ` + "falling back to call it without a callback: ", cbError);
+                target[name](...args);
+
+                // Update the API method metadata, so that the next API calls will not try to
+                // use the unsupported callback anymore.
+                metadata.fallbackToNoCallback = false;
+                metadata.noCallback = true;
+                resolve();
+              }
+            } else if (metadata.noCallback) {
+              target[name](...args);
+              resolve();
+            } else {
+              target[name](...args, makeCallback({
+                resolve,
+                reject
+              }, metadata));
+            }
           });
         };
       };
@@ -686,7 +859,7 @@
        * Wraps an existing method of the target object, so that calls to it are
        * intercepted by the given wrapper function. The wrapper function receives,
        * as its first argument, the original `target` object, followed by each of
-       * the arguments passed to the orginal method.
+       * the arguments passed to the original method.
        *
        * @param {object} target
        *        The original target object that the wrapped method belongs to.
@@ -708,7 +881,6 @@
           }
         });
       };
-
       let hasOwnProperty = Function.call.bind(Object.prototype.hasOwnProperty);
 
       /**
@@ -736,23 +908,18 @@
        */
       const wrapObject = (target, wrappers = {}, metadata = {}) => {
         let cache = Object.create(null);
-
         let handlers = {
-          has(target, prop) {
+          has(proxyTarget, prop) {
             return prop in target || prop in cache;
           },
-
-          get(target, prop, receiver) {
+          get(proxyTarget, prop, receiver) {
             if (prop in cache) {
               return cache[prop];
             }
-
             if (!(prop in target)) {
               return undefined;
             }
-
             let value = target[prop];
-
             if (typeof value === "function") {
               // This is a method on the underlying object. Check if we need to do
               // any wrapping.
@@ -775,6 +942,9 @@
               // of. Create a sub-object wrapper for it with the appropriate child
               // metadata.
               value = wrapObject(value, wrappers[prop], metadata[prop]);
+            } else if (hasOwnProperty(metadata, "*")) {
+              // Wrap all properties in * namespace.
+              value = wrapObject(value, wrappers[prop], metadata["*"]);
             } else {
               // We don't need to do any wrapping for this property,
               // so just forward all access to the underlying object.
@@ -788,15 +958,12 @@
                   target[prop] = value;
                 }
               });
-
               return value;
             }
-
             cache[prop] = value;
             return value;
           },
-
-          set(target, prop, value, receiver) {
+          set(proxyTarget, prop, value, receiver) {
             if (prop in cache) {
               cache[prop] = value;
             } else {
@@ -804,17 +971,26 @@
             }
             return true;
           },
-
-          defineProperty(target, prop, desc) {
+          defineProperty(proxyTarget, prop, desc) {
             return Reflect.defineProperty(cache, prop, desc);
           },
-
-          deleteProperty(target, prop) {
+          deleteProperty(proxyTarget, prop) {
             return Reflect.deleteProperty(cache, prop);
           }
         };
 
-        return new Proxy(target, handlers);
+        // Per contract of the Proxy API, the "get" proxy handler must return the
+        // original value of the target if that value is declared read-only and
+        // non-configurable. For this reason, we create an object with the
+        // prototype set to `target` instead of using `target` directly.
+        // Otherwise we cannot return a custom object for APIs that
+        // are declared read-only and non-configurable, such as `chrome.devtools`.
+        //
+        // The proxy handlers themselves will still use the original `target`
+        // instead of the `proxyTarget`, so that the methods and properties are
+        // dereferenced via the original targets.
+        let proxyTarget = Object.create(target);
+        return new Proxy(proxyTarget, handlers);
       };
 
       /**
@@ -837,16 +1013,36 @@
         addListener(target, listener, ...args) {
           target.addListener(wrapperMap.get(listener), ...args);
         },
-
         hasListener(target, listener) {
           return target.hasListener(wrapperMap.get(listener));
         },
-
         removeListener(target, listener) {
           target.removeListener(wrapperMap.get(listener));
         }
       });
+      const onRequestFinishedWrappers = new DefaultWeakMap(listener => {
+        if (typeof listener !== "function") {
+          return listener;
+        }
 
+        /**
+         * Wraps an onRequestFinished listener function so that it will return a
+         * `getContent()` property which returns a `Promise` rather than using a
+         * callback API.
+         *
+         * @param {object} req
+         *        The HAR entry object representing the network request.
+         */
+        return function onRequestFinished(req) {
+          const wrappedReq = wrapObject(req, {} /* wrappers */, {
+            getContent: {
+              minArgs: 0,
+              maxArgs: 0
+            }
+          });
+          listener(wrappedReq);
+        };
+      });
       const onMessageWrappers = new DefaultWeakMap(listener => {
         if (typeof listener !== "function") {
           return listener;
@@ -870,40 +1066,160 @@
          *        yield a response. False otherwise.
          */
         return function onMessage(message, sender, sendResponse) {
-          let result = listener(message, sender);
-
-          if (isThenable(result)) {
-            result.then(sendResponse, error => {
-              console.error(error);
-              sendResponse(error);
-            });
-
-            return true;
-          } else if (result !== undefined) {
-            sendResponse(result);
+          let didCallSendResponse = false;
+          let wrappedSendResponse;
+          let sendResponsePromise = new Promise(resolve => {
+            wrappedSendResponse = function (response) {
+              didCallSendResponse = true;
+              resolve(response);
+            };
+          });
+          let result;
+          try {
+            result = listener(message, sender, wrappedSendResponse);
+          } catch (err) {
+            result = Promise.reject(err);
           }
+          const isResultThenable = result !== true && isThenable(result);
+
+          // If the listener didn't returned true or a Promise, or called
+          // wrappedSendResponse synchronously, we can exit earlier
+          // because there will be no response sent from this listener.
+          if (result !== true && !isResultThenable && !didCallSendResponse) {
+            return false;
+          }
+
+          // A small helper to send the message if the promise resolves
+          // and an error if the promise rejects (a wrapped sendMessage has
+          // to translate the message into a resolved promise or a rejected
+          // promise).
+          const sendPromisedResult = promise => {
+            promise.then(msg => {
+              // send the message value.
+              sendResponse(msg);
+            }, error => {
+              // Send a JSON representation of the error if the rejected value
+              // is an instance of error, or the object itself otherwise.
+              let message;
+              if (error && (error instanceof Error || typeof error.message === "string")) {
+                message = error.message;
+              } else {
+                message = "An unexpected error occurred";
+              }
+              sendResponse({
+                __mozWebExtensionPolyfillReject__: true,
+                message
+              });
+            }).catch(err => {
+              // Print an error on the console if unable to send the response.
+              console.error("Failed to send onMessage rejected reply", err);
+            });
+          };
+
+          // If the listener returned a Promise, send the resolved value as a
+          // result, otherwise wait the promise related to the wrappedSendResponse
+          // callback to resolve and send it as a response.
+          if (isResultThenable) {
+            sendPromisedResult(result);
+          } else {
+            sendPromisedResult(sendResponsePromise);
+          }
+
+          // Let Chrome know that the listener is replying.
+          return true;
         };
       });
-
-      const staticWrappers = {
-        runtime: {
-          onMessage: wrapEvent(onMessageWrappers)
+      const wrappedSendMessageCallback = ({
+        reject,
+        resolve
+      }, reply) => {
+        if (extensionAPIs.runtime.lastError) {
+          // Detect when none of the listeners replied to the sendMessage call and resolve
+          // the promise to undefined as in Firefox.
+          // See https://github.com/mozilla/webextension-polyfill/issues/130
+          if (extensionAPIs.runtime.lastError.message === CHROME_SEND_MESSAGE_CALLBACK_NO_RESPONSE_MESSAGE) {
+            resolve();
+          } else {
+            reject(new Error(extensionAPIs.runtime.lastError.message));
+          }
+        } else if (reply && reply.__mozWebExtensionPolyfillReject__) {
+          // Convert back the JSON representation of the error into
+          // an Error instance.
+          reject(new Error(reply.message));
+        } else {
+          resolve(reply);
         }
       };
-
-      // Create a new empty object and copy the properties of the original chrome object
-      // to prevent a Proxy violation exception for the devtools API getter
-      // (which is a read-only non-configurable property on the original target).
-      const targetObject = Object.assign({}, chrome);
-
-      return wrapObject(targetObject, staticWrappers, apiMetadata);
+      const wrappedSendMessage = (name, metadata, apiNamespaceObj, ...args) => {
+        if (args.length < metadata.minArgs) {
+          throw new Error(`Expected at least ${metadata.minArgs} ${pluralizeArguments(metadata.minArgs)} for ${name}(), got ${args.length}`);
+        }
+        if (args.length > metadata.maxArgs) {
+          throw new Error(`Expected at most ${metadata.maxArgs} ${pluralizeArguments(metadata.maxArgs)} for ${name}(), got ${args.length}`);
+        }
+        return new Promise((resolve, reject) => {
+          const wrappedCb = wrappedSendMessageCallback.bind(null, {
+            resolve,
+            reject
+          });
+          args.push(wrappedCb);
+          apiNamespaceObj.sendMessage(...args);
+        });
+      };
+      const staticWrappers = {
+        devtools: {
+          network: {
+            onRequestFinished: wrapEvent(onRequestFinishedWrappers)
+          }
+        },
+        runtime: {
+          onMessage: wrapEvent(onMessageWrappers),
+          onMessageExternal: wrapEvent(onMessageWrappers),
+          sendMessage: wrappedSendMessage.bind(null, "sendMessage", {
+            minArgs: 1,
+            maxArgs: 3
+          })
+        },
+        tabs: {
+          sendMessage: wrappedSendMessage.bind(null, "sendMessage", {
+            minArgs: 2,
+            maxArgs: 3
+          })
+        }
+      };
+      const settingMetadata = {
+        clear: {
+          minArgs: 1,
+          maxArgs: 1
+        },
+        get: {
+          minArgs: 1,
+          maxArgs: 1
+        },
+        set: {
+          minArgs: 1,
+          maxArgs: 1
+        }
+      };
+      apiMetadata.privacy = {
+        network: {
+          "*": settingMetadata
+        },
+        services: {
+          "*": settingMetadata
+        },
+        websites: {
+          "*": settingMetadata
+        }
+      };
+      return wrapObject(extensionAPIs, staticWrappers, apiMetadata);
     };
 
     // The build process adds a UMD wrapper around this file, which makes the
     // `module` variable available.
-    module.exports = wrapAPIs(); // eslint-disable-line no-undef
+    module.exports = wrapAPIs(chrome);
   } else {
-    module.exports = browser; // eslint-disable-line no-undef
+    module.exports = globalThis.browser;
   }
 });
 //# sourceMappingURL=browser-polyfill.js.map

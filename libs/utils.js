@@ -414,7 +414,7 @@ function CopyToClipboard( text ){
 function Notification( title, text ){
     browser.notifications.create( {
         "type": "basic",
-        "iconUrl": browser.extension.getURL( "/icons/icon-48.png" ),
+        "iconUrl": browser.runtime.getURL( "/icons/icon-48.png" ),
         "title": title,
         "message": text
     } );

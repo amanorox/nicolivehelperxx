@@ -19,47 +19,96 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  THE SOFTWARE.
  */
+// Chrome (MV3 service worker) の場合は importScripts で依存ライブラリを読み込む。
+// Firefox (background.scripts) では manifest.json 側で複数ファイルを列挙して読み込む。
+if( typeof importScripts === 'function' ){
+    importScripts( '../libs/browser-polyfill.js', '../libs/utils.js' );
+}
+
 console.log( 'load background script.' );
 
+// MV3 の Service Worker はアイドル時に破棄されるため、
+// windowList / liveProp はメモリ変数ではなく browser.storage.session（無ければ storage.local）に保持する。
+const sessionStorage = ( browser.storage.session ) ? browser.storage.session : browser.storage.local;
 
-browser.runtime.onInstalled.addListener( function(){
+async function getWindowList(){
+    let data = await sessionStorage.get( 'windowList' );
+    return data.windowList || {};
+}
+
+async function setWindowList( windowList ){
+    await sessionStorage.set( {windowList: windowList} );
+}
+
+async function getLivePropAll(){
+    let data = await sessionStorage.get( 'liveProp' );
+    return data.liveProp || {};
+}
+
+async function setLivePropAll( liveProp ){
+    await sessionStorage.set( {liveProp: liveProp} );
+}
+
+
+browser.runtime.onInstalled.addListener( async function(){
     browser.tabs.create( {
         url: "bg/verup.html",
         active: false
     } );
-    browser.browserAction.setBadgeText( {
+    browser.action.setBadgeText( {
         text: 'NEW'
+    } );
+
+    // MV3 の Service Worker は再起動のたびにトップレベルコードを再実行するため、
+    // contextMenus の登録は重複エラーを避けて onInstalled 内でのみ行う。
+    await browser.contextMenus.removeAll();
+
+    browser.contextMenus.create( {
+        id: "menu_open_nicolivehelper_x",
+        type: "normal",
+        title: "Open New NicoLive Helper",
+        contexts: ["all"]
+    } );
+
+    browser.contextMenus.create( {
+        id: 'menu_copy_video_id',
+        type: 'normal',
+        title: 'ページ内の動画IDをコピー',
+        contexts: ['all'],
+        documentUrlPatterns: [
+            "*://www.nicovideo.jp/tag/*",
+            "*://www.nicovideo.jp/search/*",
+            "*://com.nicovideo.jp/video/*",
+            "*://www.nicovideo.jp/ranking*"
+        ]
     } );
 } );
 
 
-let windowList = {};
-let liveProp = {};
-
-function OpenWindow( url, lvid ){
-    browser.browserAction.setBadgeText( {
+async function OpenWindow( url, lvid ){
+    browser.action.setBadgeText( {
         text: ''
     } );
 
-    let mainURL = browser.extension.getURL( url );
-    let creating = browser.windows.create( {
-        url: mainURL,
-        type: "panel",
-        width: 640,
-        height: 480
-    } );
-    creating.then(
-        ( windowInfo ) => {
-            console.log( `Created window: ${windowInfo.id}` );
-            console.log( windowInfo );
-            windowList[lvid] = windowInfo;
-        },
-        ( error ) => {
-            console.log( `create window Error: ${error}` );
+    let mainURL = browser.runtime.getURL( url );
+    try{
+        let windowInfo = await browser.windows.create( {
+            url: mainURL,
+            type: "popup",
+            width: 640,
+            height: 480
         } );
+        console.log( `Created window: ${windowInfo.id}` );
+        console.log( windowInfo );
+        let windowList = await getWindowList();
+        windowList[lvid] = windowInfo;
+        await setWindowList( windowList );
+    }catch( error ){
+        console.log( `create window Error: ${error}` );
+    }
 }
 
-function OpenNicoLiveHelperX2( request_id ){
+async function OpenNicoLiveHelperX2( request_id ){
     console.log( "Open New NicoLive Helper" );
     let lvid;
     if( request_id ){
@@ -73,31 +122,34 @@ function OpenNicoLiveHelperX2( request_id ){
         url += "?lv=" + lvid;
     }
 
+    let windowList = await getWindowList();
     if( windowList[lvid] ){
         let win_id = windowList[lvid].id;
-        browser.windows.get( win_id, {populate: true} ).then(
-            ( windowInfo ) => {
-                for( tabInfo of windowInfo.tabs ){
-                    // console.log( tabInfo.url );
-                    if( tabInfo.title.indexOf( 'New NicoLive Helper' ) >= 0 ){
-                        console.log( `window ${win_id} is already exists.` );
-                        browser.windows.update( win_id, {focused: true} );
-                    }else{
-                        OpenWindow( url, lvid );
-                    }
+        try{
+            let windowInfo = await browser.windows.get( win_id, {populate: true} );
+            let found = false;
+            for( let tabInfo of windowInfo.tabs ){
+                // console.log( tabInfo.url );
+                if( tabInfo.title.indexOf( 'New NicoLive Helper' ) >= 0 ){
+                    console.log( `window ${win_id} is already exists.` );
+                    browser.windows.update( win_id, {focused: true} );
+                    found = true;
                 }
-            },
-            ( error ) => {
-                console.log( `get window error: ${error}` );
-                OpenWindow( url, lvid );
-            } );
+            }
+            if( !found ){
+                await OpenWindow( url, lvid );
+            }
+        }catch( error ){
+            console.log( `get window error: ${error}` );
+            await OpenWindow( url, lvid );
+        }
     }else{
-        OpenWindow( url, lvid );
+        await OpenWindow( url, lvid );
     }
 }
 
 
-function putLiveinfo( request, sender, sendResponse ){
+async function putLiveinfo( request, sender, sendResponse ){
     // console.log( 'received live info.' );
     // console.log( sender );
     // console.log( request );
@@ -105,18 +157,18 @@ function putLiveinfo( request, sender, sendResponse ){
     let liveinfo = request.liveinfo;
     let lvid = liveinfo.program.nicoliveProgramId;
 
+    let liveProp = await getLivePropAll();
     liveProp["" + lvid] = liveinfo;
+    await setLivePropAll( liveProp );
 }
 
-function getLiveInfo( request, sender, sendResponse ){
+async function getLiveInfo( request, sender, sendResponse ){
     console.log( sender );
     console.log( request );
     let lvid = request.request_id;
+    let liveProp = await getLivePropAll();
     let info = liveProp["" + lvid];
-    // sendResponse( info );
-    return new Promise( ( resolve ) => {
-        resolve( info );
-    } );
+    return info;
 }
 
 
@@ -146,16 +198,13 @@ function isAvailableInNewLive( request, sender, sendResponse ){
 function handleMessage( request, sender, sendResponse ){
     switch( request.cmd ){
     case 'put-liveinfo':
-        putLiveinfo( request, sender, sendResponse );
-        break;
+        return putLiveinfo( request, sender, sendResponse );
 
     case 'get-liveinfo':
         return getLiveInfo( request, sender, sendResponse );
-        break;
 
     case 'is-available-live':
         return isAvailableInNewLive( request, sender, sendResponse );
-        break;
 
     case 'open-nicolivehelper':
         let lvid = request.request_id;
@@ -171,12 +220,13 @@ function handleMessage( request, sender, sendResponse ){
 
 browser.runtime.onMessage.addListener( handleMessage );
 
-browser.browserAction.onClicked.addListener( ( tab ) => {
+browser.action.onClicked.addListener( ( tab ) => {
     let request_id = tab.url.match( /nicovideo.jp\/watch\/((lv|co|ch)\d+)/ );
     OpenNicoLiveHelperX2( request_id );
 } );
 
-//browser.browserAction.setBadgeText( {text: 'NEW'} );
+//browser.action.setBadgeText( {text: 'NEW'} );
+
 
 
 async function CopyVideoId( tab ){
@@ -201,22 +251,3 @@ browser.contextMenus.onClicked.addListener( ( info, tab ) => {
     }
 } );
 
-browser.contextMenus.create( {
-    id: "menu_open_nicolivehelper_x",
-    type: "normal",
-    title: "Open New NicoLive Helper",
-    contexts: ["all"]
-} );
-
-browser.contextMenus.create( {
-    id: 'menu_copy_video_id',
-    type: 'normal',
-    title: 'ページ内の動画IDをコピー',
-    contexts: ['all'],
-    documentUrlPatterns: [
-        "*://www.nicovideo.jp/tag/*",
-        "*://www.nicovideo.jp/search/*",
-        "*://com.nicovideo.jp/video/*",
-        "*://www.nicovideo.jp/ranking*"
-    ]
-} );
